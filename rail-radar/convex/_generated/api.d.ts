@@ -16,6 +16,8 @@ import type {
 import type * as auth from "../auth.js";
 import type * as dataUpload from "../dataUpload.js";
 import type * as http from "../http.js";
+import type * as routes from "../routes.js";
+import type * as rowCount from "../rowCount.js";
 import type * as stations from "../stations.js";
 
 /**
@@ -30,6 +32,8 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   dataUpload: typeof dataUpload;
   http: typeof http;
+  routes: typeof routes;
+  rowCount: typeof rowCount;
   stations: typeof stations;
 }>;
 export declare const api: FilterApi<

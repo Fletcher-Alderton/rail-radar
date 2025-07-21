@@ -3,23 +3,28 @@
 import { useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useState } from "react";
+import { Star } from "lucide-react";
 
 interface StationCardProps {
   station: {
     _id: string;
     station_id: string;
-    station_name: string;
-    station_lat: number;
-    station_lon: number;
+    name: string;
+    lat: number;
+    lon: number;
     thumbsUp: number;
     thumbsDown: number;
     totalVotes: number;
+    isFavorite: boolean;
   };
 }
 
 export function StationCard({ station }: StationCardProps) {
   const submitVote = useMutation(api.stations.submitVote);
+  const addFavorite = useMutation(api.stations.addFavorite);
+  const removeFavorite = useMutation(api.stations.removeFavorite);
   const [isVoting, setIsVoting] = useState(false);
+  const [isFavoriting, setIsFavoriting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleVote = async (voteType: boolean) => {
@@ -52,13 +57,46 @@ export function StationCard({ station }: StationCardProps) {
     return "Mixed reports";
   };
 
+  const handleFavorite = async () => {
+    setIsFavoriting(true);
+    setError(null);
+    
+    try {
+      if (station.isFavorite) {
+        await removeFavorite({ stationId: station.station_id });
+      } else {
+        await addFavorite({ stationId: station.station_id });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update favorite");
+    } finally {
+      setIsFavoriting(false);
+    }
+  };
+  
   return (
     <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-start">
         <div className="flex-1">
-          <h3 className="font-semibold text-lg text-slate-900 dark:text-slate-100">
-            {station.station_name}
-          </h3>
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-semibold text-lg text-slate-900 dark:text-slate-100">
+              {station.name}
+            </h3>
+            <button
+              onClick={handleFavorite}
+              disabled={isFavoriting}
+              className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={station.isFavorite ? "Remove from favorites" : "Add to favorites"}
+            >
+              <Star 
+                className={`w-4 h-4 ${
+                  station.isFavorite 
+                    ? "fill-yellow-400 text-yellow-400" 
+                    : "text-gray-400 dark:text-gray-500"
+                }`}
+              />
+            </button>
+          </div>
           <p className={`text-sm mt-1 ${getStatusColor()}`}>
             {getStatusText()}
           </p>

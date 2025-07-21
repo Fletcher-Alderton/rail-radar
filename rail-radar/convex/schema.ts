@@ -9,39 +9,26 @@ export default defineSchema({
   ...authTables,
   stations: defineTable({
     station_id: v.string(),
-    station_name: v.string(),
-    station_lat: v.number(),
-    station_lon: v.number(),
-    platforms: v.array(
-      v.object({
-        stop_id: v.string(),
-        stop_lat: v.number(),
-        stop_lon: v.number(),
-      })
-    ),
+    // Renamed fields to match the new JSON structure
+    name: v.string(),
+    lat: v.number(),
+    lon: v.number(),
+    // Platforms are now simple string ids instead of object payloads
+    platforms: v.array(v.string()),
+  }).searchIndex("search_station_name", {
+    searchField: "name",
   }),
-  routes: defineTable({
-    route_id: v.string(),
-    route_type: v.string(),
-    route_long_name: v.union(v.string(), v.null()),
-    route_short_name: v.union(v.string(), v.null()),
-  }),
-  shapes: defineTable({
-    shape_id: v.string(),
-    points: v.array(
-      v.object({
-        lat: v.number(),
-        lon: v.number(),
-        sequence: v.number(),
-      })
-    ),
-  }),
-  trips: defineTable({
-    trip_id: v.string(),
-    route_id: v.string(),
-    trip_headsign: v.string(),
-    shape_id: v.string(),
-  }),
+  // Added edges table to represent the graph relationships between stations
+  edges: defineTable({
+    from_station: v.string(),
+    to_station: v.string(),
+    edge_type: v.string(),
+    weight: v.number(),
+    route_ids: v.array(v.string()),
+    direction_id: v.number(),
+  })
+    .index("by_from_station", ["from_station"])
+    .index("by_to_station", ["to_station"]),
   // New table for ticket inspector voting system
   votes: defineTable({
     station_id: v.string(), // References the station where the vote was cast
@@ -52,45 +39,29 @@ export default defineSchema({
     .index("by_station", ["station_id"])
     .index("by_station_and_time", ["station_id", "created_at"])
     .index("by_user_and_station", ["user_id", "station_id"]),
-  precomputed_routes: defineTable({
-    id: v.string(),
-    from_stop_id: v.string(),
-    from_stop_name: v.string(),
-    from_lat: v.number(),
-    from_lon: v.number(),
-    to_stop_id: v.string(),
-    to_stop_name: v.string(),
-    to_lat: v.number(),
-    to_lon: v.number(),
-    direct_routes: v.array(
-      v.object({
-        route_id: v.string(),
-        route_name: v.union(v.string(), v.null()),
-        route_short_name: v.union(v.string(), v.null()),
-        route_color: v.union(v.string(), v.null()),
-        stops: v.optional(v.array(v.string())),
-        stop_count: v.optional(v.number()),
-        transfers: v.optional(v.number()),
-        shape_id: v.optional(v.string()),
-      })
-    ),
-    transfer_routes: v.array(
-      v.object({
-        path: v.array(v.string()),
-        routes: v.array(
-          v.object({
-            route_id: v.string(),
-            route_name: v.union(v.string(), v.null()),
-            route_short_name: v.union(v.string(), v.null()),
-            route_color: v.union(v.string(), v.null()),
-            from: v.string(),
-            to: v.string(),
-            shape_id: v.string(),
-          })
-        ),
-        transfers: v.number(),
-        total_stops: v.number(),
-      })
-    ),
-  }),
+  favorites: defineTable({
+    user_id: v.string(),
+    station_id: v.string(),
+    created_at: v.number(), // optional, for sorting/history
+  })
+    .index("by_user", ["user_id"])
+    .index("by_user_and_station", ["user_id", "station_id"]),
+
+  // New table for row counts
+  row_counts: defineTable({
+    tableName: v.string(),
+    count: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_table", ["tableName"]),
+  closest_stations: defineTable({
+    station_id: v.string(),
+    close_station_id: v.string(),
+    distance: v.number(),
+    route_ids: v.array(v.string()),
+  }).index("by_station", ["station_id"]),
+  route_to_stations: defineTable({
+    route_id: v.string(),
+    stations: v.array(v.string()),
+  }).index("by_route", ["route_id"]),
 });
