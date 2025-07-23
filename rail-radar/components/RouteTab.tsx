@@ -211,7 +211,7 @@ export function RouteTab() {
     
     if (fromStation && toStation) {
       return {
-        id: `${edge.from_station}-${edge.to_station}`,
+        id: `${edge.from_station}-${edge.to_station}-${edge.edge_type}-${edge.direction_id}`,
         positions: [
           [fromStation.lat, fromStation.lon],
           [toStation.lat, toStation.lon]
@@ -234,7 +234,7 @@ export function RouteTab() {
           
           if (fromStation && toStation) {
             return {
-              id: `path-${edge.from_station}-${edge.to_station}`,
+              id: `path-${edge.from_station}-${edge.to_station}-${edge.edge_type}-${edge.direction_id}`,
               positions: [
                 [fromStation.lat, fromStation.lon],
                 [toStation.lat, toStation.lon]
@@ -254,7 +254,7 @@ export function RouteTab() {
           
           if (fromStation && toStation) {
             return {
-              id: `next-${edge.from_station}-${edge.to_station}`,
+              id: `next-${edge.from_station}-${edge.to_station}-${edge.edge_type}-${edge.direction_id}`,
               positions: [
                 [fromStation.lat, fromStation.lon],
                 [toStation.lat, toStation.lon]
