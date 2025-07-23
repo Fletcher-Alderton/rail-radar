@@ -12,10 +12,10 @@ export default function SignIn() {
   const router = useRouter();
   
   return (
-    <div className="flex flex-col gap-8 w-96 mx-auto h-screen justify-center items-center">
-      <p>Log in to see the numbers</p>
+    <div className="flex flex-col gap-8 w-full max-w-xs mx-auto min-h-screen justify-center items-center px-2 safe-area-top safe-area-bottom">
+      <p className="text-lg text-foreground font-semibold text-center">Log in to see the numbers</p>
       <form
-        className="flex flex-col gap-2"
+        className="flex flex-col gap-3 w-full"
         onSubmit={async (e) => {
           e.preventDefault();
           setError(null);
@@ -28,8 +28,6 @@ export default function SignIn() {
             await signIn("password", formData);
             router.push("/");
           } catch (error: any) {
-            console.error("Sign in error:", error);
-            // Provide more helpful error messages
             if (error.message.includes("UNAUTHORIZED") || error.message.includes("_id")) {
               if (flow === "signIn") {
                 setError("Account not found. Please check your credentials or sign up first.");
@@ -45,7 +43,7 @@ export default function SignIn() {
         }}
       >
         <input
-          className="bg-background text-foreground rounded-md p-2 border-2 border-slate-200 dark:border-slate-800"
+          className="bg-background text-foreground rounded-md p-3 border border-border focus:outline-none focus:ring-2 focus:ring-foreground transition disabled:opacity-50"
           type="email"
           name="email"
           placeholder="Email"
@@ -53,7 +51,7 @@ export default function SignIn() {
           disabled={isLoading}
         />
         <input
-          className="bg-background text-foreground rounded-md p-2 border-2 border-slate-200 dark:border-slate-800"
+          className="bg-background text-foreground rounded-md p-3 border border-border focus:outline-none focus:ring-2 focus:ring-foreground transition disabled:opacity-50"
           type="password"
           name="password"
           placeholder="Password"
@@ -61,13 +59,13 @@ export default function SignIn() {
           disabled={isLoading}
         />
         <button
-          className="bg-foreground text-background rounded-md p-2 disabled:opacity-50"
+          className="bg-foreground text-background rounded-md p-3 font-semibold touch-target transition disabled:opacity-50"
           type="submit"
           disabled={isLoading}
         >
           {isLoading ? "Please wait..." : (flow === "signIn" ? "Sign in" : "Sign up")}
         </button>
-        <div className="flex flex-row gap-2">
+        <div className="flex flex-row gap-2 text-xs justify-center">
           <span>
             {flow === "signIn"
               ? "Don't have an account?"
@@ -84,7 +82,7 @@ export default function SignIn() {
           </span>
         </div>
         {error && (
-          <div className="bg-red-500/20 border-2 border-red-500/50 rounded-md p-2">
+          <div className="bg-destructive/10 border border-destructive rounded-md p-2 mt-2">
             <p className="text-foreground font-mono text-xs">
               {error}
             </p>

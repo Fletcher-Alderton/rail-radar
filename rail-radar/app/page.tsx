@@ -17,9 +17,9 @@ import dynamic from "next/dynamic";
 const RouteTab = dynamic(() => import("../components/RouteTab").then(mod => ({ default: mod.RouteTab })), {
   ssr: false,
   loading: () => (
-    <div className="flex items-center justify-center py-12">
+    <div className="flex items-center justify-center min-h-screen pb-24">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground mx-auto mb-4"></div>
         <p className="text-muted-foreground">Loading map...</p>
       </div>
     </div>
@@ -85,13 +85,13 @@ function PlaceholderTab({ title }: { title: string }) {
 
 function SettingsTab({ onSignOut }: { onSignOut: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh]">
-      <Card className="max-w-md mx-auto">
-        <CardHeader>
+    <div className="flex flex-col items-center justify-center min-h-[60vh] px-2 pb-24">
+      <Card className="w-full max-w-md border-border">
+        <CardHeader className="text-center">
           <CardTitle>Settings</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col items-center">
-          <Button onClick={onSignOut}>
+        <CardContent className="flex flex-col items-center gap-4">
+          <Button onClick={onSignOut} className="w-full touch-target">
             Sign out
           </Button>
         </CardContent>
@@ -260,7 +260,6 @@ function StationsTab() {
 }
 
 function FavoritesTab() {
-  // Get total favorites count using the row count query as it uniquely identifies the user
   const favoritesCountArr = useQuery(api.stations.FavoritesCount);
   const favoritesCount = favoritesCountArr ? favoritesCountArr.length : 0;
   const { results: favorites, status, loadMore } = usePaginatedQuery(
@@ -282,21 +281,21 @@ function FavoritesTab() {
 
   if (status === "LoadingFirstPage") {
     return (
-          <div className="flex items-center justify-center py-12">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-        <p className="text-muted-foreground">Loading favorites...</p>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-foreground mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading favorites...</p>
+        </div>
       </div>
-    </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-md mx-auto p-6">
       {favorites.length === 0 ? (
         <div className="text-center py-12">
-          <Card className="max-w-md mx-auto">
-            <CardHeader>
+          <Card className="w-full border-border">
+            <CardHeader className="text-center">
               <CardTitle>No Favorites Yet</CardTitle>
               <CardDescription>
                 You haven't added any stations to your favorites yet.
@@ -304,29 +303,29 @@ function FavoritesTab() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Go to the stations tab and click the star icon next to any station to add it to your favorites.
+                Go to the stations tab and tap the star icon next to any station to add it to your favorites.
               </p>
             </CardContent>
           </Card>
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold">
               {favoritesCount} Favorite Station{favoritesCount !== 1 ? 's' : ''}
             </h2>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
               Last updated: {new Date().toLocaleTimeString()}
             </div>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {favorites.map((station) => (
               <StationCard key={station.station_id} station={station} />
             ))}
           </div>
           {status === "LoadingMore" && (
-            <div className="flex items-center justify-center py-6">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+            <div className="flex items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-foreground mx-auto"></div>
             </div>
           )}
         </>

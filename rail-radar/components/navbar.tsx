@@ -1,33 +1,47 @@
 import React from "react";
+import { Cog, Home, Heart, Map } from "lucide-react";
 
 const NAV_ITEMS = [
-  { label: "Stations", key: "stations" },
-  { label: "Favorites", key: "favorites" },
-  { label: "Route", key: "route" },
-  { label: "Settings", key: "settings" },
+  { label: "Stations", key: "stations", icon: Home },
+  { label: "Favorites", key: "favorites", icon: Heart },
+  { label: "Route", key: "route", icon: Map },
+  { label: "Settings", key: "settings", icon: Cog },
 ];
 
 export type NavPage = typeof NAV_ITEMS[number]["key"];
 
 export default function Navbar({ current, onChange }: { current: NavPage; onChange: (key: NavPage) => void }) {
   return (
-    <nav className="w-full bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shadow-sm fixed bottom-0 z-20">
-      <div className="max-w-4xl mx-auto flex flex-row justify-between items-center p-2">
-        <div className="flex flex-row gap-2 w-full justify-around">
-          {NAV_ITEMS.map((item) => (
+    <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50 safe-area-bottom">
+      <div className="flex justify-around items-center h-16 max-w-md mx-auto">
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const isActive = current === item.key;
+          
+          return (
             <button
               key={item.key}
-              className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors text-sm ${
-                current === item.key
-                  ? "bg-blue-600 text-white"
-                  : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-blue-100 dark:hover:bg-blue-900"
+              className={`flex flex-col items-center justify-center gap-1 touch-target transition-colors ${
+                isActive 
+                  ? 'text-foreground' 
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
               onClick={() => onChange(item.key as NavPage)}
             >
-              {item.label}
+              <Icon 
+                className={`w-6 h-6 transition-all ${
+                  isActive ? 'scale-110' : 'scale-100'
+                }`} 
+                strokeWidth={isActive ? 2.5 : 2}
+              />
+              <span className={`text-xs font-medium transition-all ${
+                isActive ? 'opacity-100' : 'opacity-75'
+              }`}>
+                {item.label}
+              </span>
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
     </nav>
   );

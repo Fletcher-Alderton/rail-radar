@@ -171,7 +171,7 @@ export const getAllStationsWithVotes = query({
     
     const favoriteStationIds = new Set(userFavorites.map(f => f.station_id));
 
-    // Get vote counts for each station
+    // Get vote counts and inspector score for each station
     const stationsWithVotes = await Promise.all(
       stations.map(async (station) => {
         // Get recent votes for this station
@@ -185,12 +185,34 @@ export const getAllStationsWithVotes = query({
         const thumbsUp = votes.filter((vote) => vote.vote_type === true).length;
         const thumbsDown = votes.filter((vote) => vote.vote_type === false).length;
 
+        // Inspector score logic (same as getInspectorScore)
+        const VOTE_WINDOW_HOURS = 2;
+        const VOTE_WINDOW_MS = VOTE_WINDOW_HOURS * 60 * 60 * 1000;
+        const inspectorCutoffTime = now - VOTE_WINDOW_MS;
+        const LAMBDA = 0.5;
+        const inspectorVotes = votes.filter(v => v.created_at >= inspectorCutoffTime);
+        let upWeight = 0;
+        let downWeight = 0;
+        for (const vote of inspectorVotes) {
+          const ageMs = now - vote.created_at;
+          const ageHours = ageMs / (1000 * 60 * 60);
+          const weight = Math.exp(-LAMBDA * ageHours);
+          if (vote.vote_type === true) {
+            upWeight += weight;
+          } else {
+            downWeight += weight;
+          }
+        }
+        const totalWeight = upWeight + downWeight;
+        const inspectorScore = totalWeight === 0 ? 0 : upWeight / totalWeight;
+
         return {
           ...station,
           thumbsUp,
           thumbsDown,
           totalVotes: thumbsUp + thumbsDown,
           isFavorite: favoriteStationIds.has(station.station_id),
+          inspectorScore,
         };
       })
     );
@@ -522,5 +544,79 @@ export const getUserFavoriteStationsPaginated = query({
       continueCursor: paginatedFavorites.continueCursor,
       isDone: paginatedFavorites.isDone,
     };
+  },
+});
+
+// Inspector score calculation for a station
+export const getInspectorScore = query({
+  args: { station_id: v.string() },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    // Consider votes from the last 2 hours for more data
+    const VOTE_WINDOW_HOURS = 2;
+    const VOTE_WINDOW_MS = VOTE_WINDOW_HOURS * 60 * 60 * 1000;
+    const cutoffTime = now - VOTE_WINDOW_MS;
+    const LAMBDA = 0.5; // Decay rate per hour
+
+    // Get recent votes for this station
+    const votes = await ctx.db
+      .query("votes")
+      .withIndex("by_station", (q) => q.eq("station_id", args.station_id))
+      .filter((q) => q.gte(q.field("created_at"), cutoffTime))
+      .collect();
+
+    let upWeight = 0;
+    let downWeight = 0;
+    for (const vote of votes) {
+      const ageMs = now - vote.created_at;
+      const ageHours = ageMs / (1000 * 60 * 60);
+      const weight = Math.exp(-LAMBDA * ageHours);
+      if (vote.vote_type === true) {
+        upWeight += weight;
+      } else {
+        downWeight += weight;
+      }
+    }
+    const totalWeight = upWeight + downWeight;
+    const score = totalWeight === 0 ? 0 : upWeight / totalWeight;
+    return {
+      score,
+      numVotes: votes.length,
+    };
+  },
+});
+
+export const getInspectorScores = query({
+  args: { station_ids: v.array(v.string()) },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const VOTE_WINDOW_HOURS = 2;
+    const VOTE_WINDOW_MS = VOTE_WINDOW_HOURS * 60 * 60 * 1000;
+    const cutoffTime = now - VOTE_WINDOW_MS;
+    const LAMBDA = 0.5;
+    const result: Record<string, { score: number; numVotes: number }> = {};
+    for (const station_id of args.station_ids) {
+      const votes = await ctx.db
+        .query("votes")
+        .withIndex("by_station", (q) => q.eq("station_id", station_id))
+        .filter((q) => q.gte(q.field("created_at"), cutoffTime))
+        .collect();
+      let upWeight = 0;
+      let downWeight = 0;
+      for (const vote of votes) {
+        const ageMs = now - vote.created_at;
+        const ageHours = ageMs / (1000 * 60 * 60);
+        const weight = Math.exp(-LAMBDA * ageHours);
+        if (vote.vote_type === true) {
+          upWeight += weight;
+        } else {
+          downWeight += weight;
+        }
+      }
+      const totalWeight = upWeight + downWeight;
+      const score = totalWeight === 0 ? 0 : upWeight / totalWeight;
+      result[station_id] = { score, numVotes: votes.length };
+    }
+    return result;
   },
 });

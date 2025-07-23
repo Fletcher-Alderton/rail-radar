@@ -1,9 +1,9 @@
 "use client";
 
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useState } from "react";
-import { Star } from "lucide-react";
+import { Star, ThumbsUp, ThumbsDown } from "lucide-react";
 
 interface StationCardProps {
   station: {
@@ -23,9 +23,29 @@ export function StationCard({ station }: StationCardProps) {
   const submitVote = useMutation(api.stations.submitVote);
   const addFavorite = useMutation(api.stations.addFavorite);
   const removeFavorite = useMutation(api.stations.removeFavorite);
+  const inspectorScore = useQuery(api.stations.getInspectorScore, { station_id: station.station_id });
   const [isVoting, setIsVoting] = useState(false);
   const [isFavoriting, setIsFavoriting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Compute background color based on inspector score
+  let bgColor = "#18181b"; // fallback to your default card color
+  if (inspectorScore && typeof inspectorScore.score === "number") {
+    const score = inspectorScore.score;
+    function lerpColor(a: number[], b: number[], t: number) {
+      return a.map((v, i) => Math.round(v + (b[i] - v) * t));
+    }
+    const green = [34, 197, 94];
+    const yellow = [234, 179, 8];
+    const red = [239, 68, 68];
+    let rgb;
+    if (score < 0.5) {
+      rgb = lerpColor(green, yellow, score / 0.5);
+    } else {
+      rgb = lerpColor(yellow, red, (score - 0.5) / 0.5);
+    }
+    bgColor = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+  }
 
   const handleVote = async (voteType: boolean) => {
     setIsVoting(true);
@@ -41,20 +61,6 @@ export function StationCard({ station }: StationCardProps) {
     } finally {
       setIsVoting(false);
     }
-  };
-
-  const getStatusColor = () => {
-    if (station.totalVotes === 0) return "text-gray-500";
-    if (station.thumbsUp > station.thumbsDown) return "text-green-600";
-    if (station.thumbsDown > station.thumbsUp) return "text-red-600";
-    return "text-yellow-600";
-  };
-
-  const getStatusText = () => {
-    if (station.totalVotes === 0) return "No recent reports";
-    if (station.thumbsUp > station.thumbsDown) return "Likely clear";
-    if (station.thumbsDown > station.thumbsUp) return "Inspectors reported";
-    return "Mixed reports";
   };
 
   const handleFavorite = async () => {
@@ -73,65 +79,55 @@ export function StationCard({ station }: StationCardProps) {
       setIsFavoriting(false);
     }
   };
-  
+
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex justify-between items-start">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-semibold text-lg text-slate-900 dark:text-slate-100">
-              {station.name}
-            </h3>
-            <button
-              onClick={handleFavorite}
-              disabled={isFavoriting}
-              className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title={station.isFavorite ? "Remove from favorites" : "Add to favorites"}
-            >
-              <Star 
-                className={`w-4 h-4 ${
-                  station.isFavorite 
-                    ? "fill-yellow-400 text-yellow-400" 
-                    : "text-gray-400 dark:text-gray-500"
-                }`}
-              />
-            </button>
-          </div>
-          <p className={`text-sm mt-1 ${getStatusColor()}`}>
-            {getStatusText()}
-          </p>
-          <p className="text-xs text-slate-500 mt-1">
-            {station.totalVotes} report{station.totalVotes !== 1 ? 's' : ''} in the last hour
-          </p>
+    <div
+      className="border border-border rounded-lg p-4 touch-target transition-colors duration-500"
+      style={inspectorScore && typeof inspectorScore.score === "number" ? { backgroundColor: bgColor } : undefined}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-base text-foreground truncate">
+            {station.name}
+          </h3>
         </div>
+        <button
+          onClick={handleFavorite}
+          disabled={isFavoriting}
+          className="ml-3 p-2 rounded-full hover:bg-secondary transition-colors disabled:opacity-50"
+          title={station.isFavorite ? "Remove from favorites" : "Add to favorites"}
+        >
+          <Star 
+            fill={station.isFavorite ? "currentColor" : "none"}
+            className={`w-5 h-5 transition-colors ${
+              station.isFavorite 
+                ? "text-foreground" 
+                : "text-muted-foreground"
+            }`} 
+          />
+        </button>
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={() => handleVote(true)}
+          disabled={isVoting}
+          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-md bg-secondary hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ThumbsDown className="w-4 h-4" />
+        </button>
         
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => handleVote(true)}
-            disabled={isVoting}
-            className="flex items-center gap-2 px-3 py-2 bg-green-100 dark:bg-green-900 hover:bg-green-200 dark:hover:bg-green-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="text-green-600 dark:text-green-400 text-xl">👍</span>
-            <span className="font-medium text-green-700 dark:text-green-300">
-              {station.thumbsUp}
-            </span>
-          </button>
-          
-          <button
-            onClick={() => handleVote(false)}
-            disabled={isVoting}
-            className="flex items-center gap-2 px-3 py-2 bg-red-100 dark:bg-red-900 hover:bg-red-200 dark:hover:bg-red-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="text-red-600 dark:text-red-400 text-xl">👎</span>
-            <span className="font-medium text-red-700 dark:text-red-300">
-              {station.thumbsDown}
-            </span>
-          </button>
-        </div>
+        <button
+          onClick={() => handleVote(false)}
+          disabled={isVoting}
+          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-md bg-secondary hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ThumbsUp className="w-4 h-4" />
+        </button>
       </div>
       
       {error && (
-        <div className="mt-3 p-2 bg-red-100 dark:bg-red-900 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-300 text-sm">
+        <div className="mt-3 p-2 bg-secondary border border-border rounded text-sm text-foreground">
           {error}
         </div>
       )}
