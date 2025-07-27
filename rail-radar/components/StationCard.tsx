@@ -3,7 +3,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useState } from "react";
-import { Star, ThumbsUp, ThumbsDown } from "lucide-react";
+import { useTheme } from "next-themes";
 
 interface StationCardProps {
   station: {
@@ -27,9 +27,13 @@ export function StationCard({ station }: StationCardProps) {
   const [isVoting, setIsVoting] = useState(false);
   const [isFavoriting, setIsFavoriting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { resolvedTheme } = useTheme();
+  const iconSuffix = resolvedTheme === 'dark' ? 'white' : 'black';
+  
+  console.log('StationCard - resolvedTheme:', resolvedTheme, 'iconSuffix:', iconSuffix);
 
-  // Compute background color based on inspector score
-  let bgColor = "#18181b"; // fallback to your default card color
+  // Radial gradient glassmorphism background
+  let tint = 'rgba(24,24,27,0.7)';
   if (inspectorScore && typeof inspectorScore.score === "number") {
     const score = inspectorScore.score;
     function lerpColor(a: number[], b: number[], t: number) {
@@ -44,8 +48,25 @@ export function StationCard({ station }: StationCardProps) {
     } else {
       rgb = lerpColor(yellow, red, (score - 0.5) / 0.5);
     }
-    bgColor = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+    tint = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.7)`;
   }
+  // Card border/shadow style only
+  let cardStyle: React.CSSProperties = {
+    border: '1px solid var(--border)',
+    boxShadow: '0 4px 24px 0 rgba(0,0,0,0.10)',
+    borderRadius: '1rem',
+    overflow: 'hidden',
+    background: 'transparent',
+  };
+  // Blurred gradient background style
+  let blurBgStyle: React.CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    zIndex: 0,
+    background: `radial-gradient(circle at 50% 50%, ${tint} 0%, rgba(24,24,27,0.10) 80%, rgba(24,24,27,0.0) 100%)`,
+    filter: 'blur(24px)',
+    pointerEvents: 'none',
+  };
 
   const handleVote = async (voteType: boolean) => {
     setIsVoting(true);
@@ -82,55 +103,70 @@ export function StationCard({ station }: StationCardProps) {
 
   return (
     <div
-      className="border border-border rounded-lg p-4 touch-target transition-colors duration-500"
-      style={inspectorScore && typeof inspectorScore.score === "number" ? { backgroundColor: bgColor } : undefined}
+      className="relative rounded-2xl p-4 touch-target transition-colors duration-500 shadow-xl border border-border/10"
+      style={cardStyle}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-base text-foreground truncate">
-            {station.name}
-          </h3>
+      <div style={blurBgStyle} />
+      <div className="relative z-10">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-base text-foreground truncate">
+              {station.name}
+            </h3>
+          </div>
+          <button
+            onClick={handleFavorite}
+            disabled={isFavoriting}
+            className="ml-3 p-2 rounded-full hover:bg-secondary/60 transition-colors disabled:opacity-50"
+            title={station.isFavorite ? "Remove from favorites" : "Add to favorites"}
+          >
+            <img
+              src={station.isFavorite ? `/icons/star.fill.${iconSuffix}.svg` : `/icons/star.${iconSuffix}.svg`}
+              alt={station.isFavorite ? "Remove from favorites" : "Add to favorites"}
+              width={24}
+              height={24}
+              className={station.isFavorite ? "text-yellow-400" : "text-muted-foreground"}
+              style={{ filter: station.isFavorite ? undefined : 'grayscale(1) opacity(0.7)' }}
+              draggable="false"
+            />
+          </button>
         </div>
-        <button
-          onClick={handleFavorite}
-          disabled={isFavoriting}
-          className="ml-3 p-2 rounded-full hover:bg-secondary transition-colors disabled:opacity-50"
-          title={station.isFavorite ? "Remove from favorites" : "Add to favorites"}
-        >
-          <Star 
-            fill={station.isFavorite ? "currentColor" : "none"}
-            className={`w-5 h-5 transition-colors ${
-              station.isFavorite 
-                ? "text-foreground" 
-                : "text-muted-foreground"
-            }`} 
-          />
-        </button>
-      </div>
 
-      <div className="flex gap-2">
-        <button
-          onClick={() => handleVote(true)}
-          disabled={isVoting}
-          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-md bg-secondary hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <ThumbsDown className="w-4 h-4" />
-        </button>
-        
-        <button
-          onClick={() => handleVote(false)}
-          disabled={isVoting}
-          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-md bg-secondary hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <ThumbsUp className="w-4 h-4" />
-        </button>
-      </div>
-      
-      {error && (
-        <div className="mt-3 p-2 bg-secondary border border-border rounded text-sm text-foreground">
-          {error}
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleVote(true)}
+            disabled={isVoting}
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-md bg-secondary/70 hover:bg-secondary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <img
+              src={`/icons/exclamationmark.triangle.${iconSuffix}.svg`}
+              alt="Report issue"
+              width={24}
+              height={24}
+              draggable="false"
+            />
+          </button>
+          <button
+            onClick={() => handleVote(false)}
+            disabled={isVoting}
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-md bg-secondary/70 hover:bg-secondary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <img
+              src={`/icons/checkmark.circle.${iconSuffix}.svg`}
+              alt="Mark as good"
+              width={24}
+              height={24}
+              draggable="false"
+            />
+          </button>
         </div>
-      )}
+        
+        {error && (
+          <div className="mt-3 p-2 bg-secondary border border-border rounded text-sm text-foreground">
+            {error}
+          </div>
+        )}
+      </div>
     </div>
   );
 } 

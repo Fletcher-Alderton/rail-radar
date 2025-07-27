@@ -2,8 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
-import { useState } from "react";
-import { Star, ThumbsUp, ThumbsDown } from "lucide-react";
+import { useTheme } from "next-themes";
 
 interface MinimalStationCardProps {
   station: {
@@ -17,9 +16,10 @@ interface MinimalStationCardProps {
 
 export function MinimalStationCard({ station }: MinimalStationCardProps) {
   const inspectorScore = useQuery(api.stations.getInspectorScore, { station_id: station.station_id });
+  const { resolvedTheme } = useTheme();
 
-  // Compute background color based on inspector score
-  let bgColor = "#18181b"; // fallback to your default card color
+  // Radial gradient glassmorphism background
+  let tint = 'rgba(24,24,27,0.7)';
   if (inspectorScore && typeof inspectorScore.score === "number") {
     const score = inspectorScore.score;
     function lerpColor(a: number[], b: number[], t: number) {
@@ -34,19 +34,39 @@ export function MinimalStationCard({ station }: MinimalStationCardProps) {
     } else {
       rgb = lerpColor(yellow, red, (score - 0.5) / 0.5);
     }
-    bgColor = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+    tint = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.7)`;
   }
-
-
+  
+  // Card border/shadow style only
+  let cardStyle: React.CSSProperties = {
+    border: '1px solid var(--border)',
+    boxShadow: '0 4px 24px 0 rgba(0,0,0,0.10)',
+    borderRadius: '1rem',
+    overflow: 'hidden',
+    background: 'transparent',
+  };
+  
+  // Blurred gradient background style
+  let blurBgStyle: React.CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    zIndex: 0,
+    background: `radial-gradient(circle at 50% 50%, ${tint} 0%, rgba(24,24,27,0.10) 80%, rgba(24,24,27,0.0) 100%)`,
+    filter: 'blur(24px)',
+    pointerEvents: 'none',
+  };
 
   return (
     <div
-      className="border border-border rounded-lg p-4 touch-target transition-colors duration-500"
-      style={inspectorScore && typeof inspectorScore.score === "number" ? { backgroundColor: bgColor } : undefined}
+      className="relative rounded-2xl p-4 touch-target transition-colors duration-500 shadow-xl border border-border/10"
+      style={cardStyle}
     >
-      <h3 className="font-semibold text-base text-foreground truncate">
-        {station.name}
-      </h3>
+      <div style={blurBgStyle} />
+      <div className="relative z-10">
+        <h3 className="font-semibold text-base text-foreground truncate">
+          {station.name}
+        </h3>
+      </div>
     </div>
   );
 } 

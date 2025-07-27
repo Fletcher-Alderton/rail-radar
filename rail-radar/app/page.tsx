@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Navbar, { NavPage } from "../components/navbar";
 import { useConvexAuth } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
@@ -11,6 +11,8 @@ import { StationCard } from "../components/StationCard";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../components/ui/sheet";
+import { useTheme } from "next-themes";
 import dynamic from "next/dynamic";
 
 // Dynamically import RouteTab with no SSR to prevent Leaflet from running on server
@@ -26,15 +28,96 @@ const RouteTab = dynamic(() => import("../components/RouteTab").then(mod => ({ d
   ),
 });
 
+// Dynamically import RoutePlanningFab
+const RoutePlanningFab = dynamic(() => import("../components/RouteTab").then(mod => ({ default: mod.RoutePlanningFab })), {
+  ssr: false,
+});
+
 export default function Home() {
   const [current, setCurrent] = useState<NavPage>("stations");
+  const [showSearch, setShowSearch] = useState(false);
   const { isAuthenticated } = useConvexAuth();
   const { signOut } = useAuthActions();
+  const { resolvedTheme } = useTheme();
   const router = useRouter();
+
+  // Route planning state
+  const [showRouteSheet, setShowRouteSheet] = useState(false);
+  const [startStation, setStartStation] = useState<string>("");
+  const [endStation, setEndStation] = useState<string>("");
+  const [showPathfinding, setShowPathfinding] = useState(false);
+
+  // Route planning handlers
+  const handleFindPath = () => {
+    if (startStation && endStation) {
+      setShowPathfinding(true);
+      setShowRouteSheet(false);
+    }
+  };
+
+  const handleClearPath = () => {
+    setShowPathfinding(false);
+    setStartStation("");
+    setEndStation("");
+  };
+
+  // Determine which button to show based on current tab
+  const getSearchButton = () => {
+    if (current === "route") {
+      return null; // RoutePlanningFab is now handled within RouteTab component
+    }
+
+    const iconSuffix = resolvedTheme === 'dark' ? 'white' : 'black';
+    console.log('Search button - resolvedTheme:', resolvedTheme, 'iconSuffix:', iconSuffix);
+
+    return (
+      <Button
+        className="h-13 w-13 rounded-full bg-background/70 backdrop-blur-xl shadow-xl border border-border/10 p-0 flex flex-col items-center justify-center gap-1 touch-target transition-colors text-muted-foreground hover:text-foreground"
+        variant="ghost"
+        onClick={() => setShowSearch(!showSearch)}
+      >
+        <img
+          src={`/icons/magnifyingglass.${iconSuffix}.svg`}
+          alt="Search"
+          width={20}
+          height={20}
+          className="mb-0.5 select-none opacity-70"
+          draggable="false"
+        />
+      </Button>
+    );
+  };
+
+  // Get route FAB when on route page
+  const getRouteFab = () => {
+    if (current !== "route") return null;
+
+    return (
+      <RoutePlanningFab
+        showRouteSheet={showRouteSheet}
+        setShowRouteSheet={setShowRouteSheet}
+        startStation={startStation}
+        setStartStation={setStartStation}
+        endStation={endStation}
+        setEndStation={setEndStation}
+        handleFindPath={handleFindPath}
+        handleClearPath={handleClearPath}
+        showPathfinding={showPathfinding}
+        pathfindingData={undefined} // We'll need to get this from the RouteTab
+        stationMap={undefined} // We'll need to get this from the RouteTab
+      />
+    );
+  };
 
   return (
     <>
-      <Navbar current={current} onChange={setCurrent} />
+      <Navbar 
+        current={current} 
+        onChange={setCurrent} 
+        searchButton={getSearchButton()}
+        routeFab={getRouteFab()}
+      />
+
       <main className="min-h-screen bg-background pb-20">
         {!isAuthenticated ? (
           <div className="text-center">
@@ -54,21 +137,139 @@ export default function Home() {
           </div>
         ) : (
           <>
-            {current === "stations" && <StationsTab />}
+            {current === "stations" && <StationsTab 
+              onSignOut={() => {
+                void signOut().then(() => {
+                  router.push("/signin");
+                });
+              }}
+              showSearch={showSearch}
+              onSearchToggle={() => setShowSearch(!showSearch)}
+            />}
 
-            {current === "favorites" && <FavoritesTab />}
-            {current === "route" && <RouteTab />}
-            {current === "settings" && <SettingsTab onSignOut={() => {
-              void signOut().then(() => {
-                router.push("/signin");
-              });
-            }} />}
+            {current === "favorites" && <FavoritesTab 
+              showSearch={showSearch}
+              onSearchToggle={() => setShowSearch(!showSearch)}
+            />}
+            {current === "route" && (
+              <RouteTab 
+                showRouteSheet={showRouteSheet}
+                setShowRouteSheet={setShowRouteSheet}
+                startStation={startStation}
+                setStartStation={setStartStation}
+                endStation={endStation}
+                setEndStation={setEndStation}
+                showPathfinding={showPathfinding}
+                setShowPathfinding={setShowPathfinding}
+              />
+            )}
           </>
         )}
       </main>
     </>
   );
 }
+
+// iOS 26-style Liquid Glass Search Bar Component
+function LiquidGlassSearchBar({ 
+  searchQuery, 
+  onSearchChange, 
+  isSearching, 
+  isVisible, 
+  onClose 
+}: {
+  searchQuery: string;
+  onSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  isSearching: boolean;
+  isVisible: boolean;
+  onClose: () => void;
+}) {
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const { resolvedTheme } = useTheme();
+  const iconSuffix = resolvedTheme === 'dark' ? 'white' : 'black';
+  
+  console.log('Search bar - resolvedTheme:', resolvedTheme, 'iconSuffix:', iconSuffix);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const visualViewport = window.visualViewport;
+      if (visualViewport) {
+        const height = window.innerHeight - visualViewport.height;
+        setKeyboardHeight(height);
+        setIsKeyboardVisible(height > 150); // Threshold for keyboard detection
+      }
+    };
+
+    if (typeof window !== 'undefined' && window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+      return () => window.visualViewport?.removeEventListener('resize', handleResize);
+    }
+  }, []);
+
+  if (!isVisible) return null;
+
+  return (
+    <div 
+      className="fixed inset-x-0 z-50 transition-all duration-300 ease-out"
+      style={{
+        bottom: isKeyboardVisible ? `${keyboardHeight + 16}px` : '16px',
+      }}
+    >
+      <div className="mx-4">
+        <div className="relative">
+          {/* Liquid Glass Background */}
+          <div className="absolute inset-0 rounded-full bg-background/80 backdrop-blur-xl border border-border/20 shadow-2xl" />
+          
+          {/* Search Input */}
+          <div className="relative flex items-center px-4 py-3">
+            <Input
+              type="text"
+              placeholder="Search stations..."
+              value={searchQuery}
+              onChange={onSearchChange}
+              className="border-0 bg-transparent text-base placeholder:text-muted-foreground/70 focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+              autoFocus
+            />
+            
+            {/* Search Icon */}
+            <div className="absolute left-4 flex items-center pointer-events-none">
+              <img
+                src={`/icons/magnifyingglass.${iconSuffix}.svg`}
+                alt=""
+                width={20}
+                height={20}
+                className="opacity-60"
+                draggable="false"
+              />
+            </div>
+            
+            {/* Loading Indicator */}
+            {isSearching && (
+              <div className="absolute right-4 flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+              </div>
+            )}
+            
+            {/* Close Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="absolute right-2 h-8 w-8 p-0 rounded-full bg-muted/50 hover:bg-muted/70"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 
 function PlaceholderTab({ title }: { title: string }) {
   return (
@@ -83,26 +284,15 @@ function PlaceholderTab({ title }: { title: string }) {
   );
 }
 
-function SettingsTab({ onSignOut }: { onSignOut: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] px-2 pb-24">
-      <Card className="w-full max-w-md border-border">
-        <CardHeader className="text-center">
-          <CardTitle>Settings</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center gap-4">
-          <Button onClick={onSignOut} className="w-full touch-target">
-            Sign out
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
 
-function StationsTab() {
+
+function StationsTab({ onSignOut, showSearch, onSearchToggle }: { onSignOut: () => void; showSearch: boolean; onSearchToggle: () => void }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  const { resolvedTheme } = useTheme();
+  const iconSuffix = resolvedTheme === 'dark' ? 'white' : 'black';
+  
+  console.log('StationsTab - resolvedTheme:', resolvedTheme, 'iconSuffix:', iconSuffix);
   
   // Get total station count using the row count query as it not unique to the user
   const stationCount = useQuery(api.rowCount.getRowCount, { tableName: "stations" });
@@ -148,127 +338,152 @@ function StationsTab() {
     setIsSearching(true);
   };
 
+  // Clear search when search is toggled off
+  React.useEffect(() => {
+    if (!showSearch) {
+      setSearchQuery("");
+    }
+  }, [showSearch]);
+
+  const handleCloseSearch = () => {
+    setSearchQuery("");
+    onSearchToggle();
+  };
+
   // Show loading state for initial page load or when searching
   if (status === "LoadingFirstPage" && !isSearchMode) {
     return (
-              <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading stations...</p>
-          </div>
-        </div>
-    );
-  }
-
-  // Show loading state for search
-  if (isSearchMode && isSearching) {
-    return (
-      <div className="max-w-4xl mx-auto p-6">
-        {/* Search Input */}
-        <div className="mb-6">
-          <div className="relative">
-            <Input
-              type="text"
-              placeholder="Search stations..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-              className="pl-10"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Search Loading State */}
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Searching stations...</p>
-          </div>
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading stations...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-              {/* Search Input */}
-        <div className="mb-6">
-          <div className="relative">
-            <Input
-              type="text"
-              placeholder="Search stations..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-              className="pl-10"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+    <>
+      {/* Liquid Glass Search Bar */}
+      <LiquidGlassSearchBar
+        searchQuery={searchQuery}
+        onSearchChange={handleSearchChange}
+        isSearching={isSearching}
+        isVisible={showSearch}
+        onClose={handleCloseSearch}
+      />
+
+      <div className="max-w-4xl mx-auto p-6">
+        {/* Search Loading State */}
+        {isSearchMode && isSearching && (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Searching stations...</p>
             </div>
-            {isSearching && (
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+          </div>
+        )}
+
+        {displayStations.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground text-lg">
+              {isSearchMode 
+                ? `No stations found matching "${searchQuery}".` 
+                : "No stations found. Please check back later."
+              }
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold">
+                {isSearchMode 
+                  ? `${displayStations.length} Station${displayStations.length !== 1 ? 's' : ''} found`
+                  : `${stationCount} Stations`
+                }
+              </h2>
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-10 w-10 p-0"
+                  >
+                    <img
+                      src={`/icons/person.crop.circle.${iconSuffix}.svg`}
+                      alt="Profile"
+                      width={22}
+                      height={22}
+                      className="opacity-100"
+                      draggable="false"
+                    />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl border-t-2">
+                  <SheetHeader className="pb-6">
+                    <SheetTitle className="flex items-center gap-2">
+                      <img
+                        src={`/icons/person.crop.circle.${iconSuffix}.svg`}
+                        alt=""
+                        width={20}
+                        height={20}
+                        className="opacity-100"
+                        draggable="false"
+                      />
+                      Profile
+                    </SheetTitle>
+                  </SheetHeader>
+                  <div className="flex flex-col items-center gap-4 mt-6">
+                    <Button onClick={onSignOut} className="w-full touch-target">
+                      Sign out
+                    </Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
+            <div className="space-y-3">
+              {displayStations.map((station) => (
+                <StationCard key={station.station_id} station={station} />
+              ))}
+            </div>
+            {status === "LoadingMore" && !isSearchMode && (
+              <div className="flex items-center justify-center py-6">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
               </div>
             )}
-          </div>
-        </div>
-
-      {displayStations.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground text-lg">
-            {isSearchMode 
-              ? `No stations found matching "${searchQuery}".` 
-              : "No stations found. Please check back later."
-            }
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold">
-              {isSearchMode 
-                ? `${displayStations.length} Station${displayStations.length !== 1 ? 's' : ''} found`
-                : `${stationCount} Stations`
-              }
-            </h2>
-            <div className="text-sm text-muted-foreground">
-              Last updated: {new Date().toLocaleTimeString()}
-            </div>
-          </div>
-          <div className="space-y-3">
-            {displayStations.map((station) => (
-              <StationCard key={station.station_id} station={station} />
-            ))}
-          </div>
-          {status === "LoadingMore" && !isSearchMode && (
-            <div className="flex items-center justify-center py-6">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
-            </div>
-          )}
-        </>
-      )}
-    </div>
+          </>
+        )}
+      </div>
+    </>
   );
 }
 
-function FavoritesTab() {
+function FavoritesTab({ showSearch, onSearchToggle }: { showSearch: boolean; onSearchToggle: () => void }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  
+  // Get favorites count
   const favoritesCountArr = useQuery(api.stations.FavoritesCount);
   const favoritesCount = favoritesCountArr ? favoritesCountArr.length : 0;
+  
+  // Use search for favorites when there's a search term, otherwise use regular paginated query
+  const searchResults = useQuery(
+    api.stations.searchUserFavorites,
+    searchQuery ? { searchQuery } : "skip"
+  );
+  
   const { results: favorites, status, loadMore } = usePaginatedQuery(
     api.stations.getUserFavoriteStationsPaginated,
     {},
     { initialNumItems: 10 }
   );
+  
+  // Determine which data to display
+  const displayFavorites = searchQuery ? (searchResults || []) : favorites;
+  const isSearchMode = searchQuery.length > 0;
+  
   React.useEffect(() => {
-    if (status === "CanLoadMore") {
+    if (status === "CanLoadMore" && !isSearchMode) {
       const onScrollFavorites = () => {
         if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
           loadMore(10);
@@ -277,9 +492,35 @@ function FavoritesTab() {
       window.addEventListener("scroll", onScrollFavorites);
       return () => window.removeEventListener("scroll", onScrollFavorites);
     }
-  }, [status, loadMore]);
+  }, [status, loadMore, isSearchMode]);
 
-  if (status === "LoadingFirstPage") {
+  // Debounce search input
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsSearching(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    setIsSearching(true);
+  };
+
+  // Clear search when search is toggled off
+  React.useEffect(() => {
+    if (!showSearch) {
+      setSearchQuery("");
+    }
+  }, [showSearch]);
+
+  const handleCloseSearch = () => {
+    setSearchQuery("");
+    onSearchToggle();
+  };
+
+  // Show loading state for initial page load or when searching
+  if (status === "LoadingFirstPage" && !isSearchMode) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
@@ -291,45 +532,75 @@ function FavoritesTab() {
   }
 
   return (
-    <div className="max-w-md mx-auto p-6">
-      {favorites.length === 0 ? (
-        <div className="text-center py-12">
-          <Card className="w-full border-border">
-            <CardHeader className="text-center">
-              <CardTitle>No Favorites Yet</CardTitle>
-              <CardDescription>
-                You haven't added any stations to your favorites yet.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Go to the stations tab and tap the star icon next to any station to add it to your favorites.
+    <>
+      {/* Liquid Glass Search Bar */}
+      <LiquidGlassSearchBar
+        searchQuery={searchQuery}
+        onSearchChange={handleSearchChange}
+        isSearching={isSearching}
+        isVisible={showSearch}
+        onClose={handleCloseSearch}
+      />
+
+      <div className="max-w-md mx-auto p-6">
+        {/* Search Loading State */}
+        {isSearchMode && isSearching && (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Searching favorites...</p>
+            </div>
+          </div>
+        )}
+
+        {displayFavorites.length === 0 ? (
+          <div className="text-center py-12">
+            {isSearchMode ? (
+              <p className="text-muted-foreground text-lg">
+                No favorites found matching "{searchQuery}".
               </p>
-            </CardContent>
-          </Card>
-        </div>
-      ) : (
-        <>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold">
-              {favoritesCount} Favorite Station{favoritesCount !== 1 ? 's' : ''}
-            </h2>
-            <div className="text-xs text-muted-foreground">
-              Last updated: {new Date().toLocaleTimeString()}
-            </div>
+            ) : (
+              <Card className="w-full border-border">
+                <CardHeader className="text-center">
+                  <CardTitle>No Favorites Yet</CardTitle>
+                  <CardDescription>
+                    You haven't added any stations to your favorites yet.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Go to the stations tab and tap the star icon next to any station to add it to your favorites.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </div>
-          <div className="space-y-2">
-            {favorites.map((station) => (
-              <StationCard key={station.station_id} station={station} />
-            ))}
-          </div>
-          {status === "LoadingMore" && (
-            <div className="flex items-center justify-center py-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-foreground mx-auto"></div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold">
+                {isSearchMode 
+                  ? `${displayFavorites.length} Favorite Station${displayFavorites.length !== 1 ? 's' : ''} found`
+                  : `${favoritesCount} Favorite Station${favoritesCount !== 1 ? 's' : ''}`
+                }
+              </h2>
+              <div className="text-xs text-muted-foreground">
+                Last updated: {new Date().toLocaleTimeString()}
+              </div>
             </div>
-          )}
-        </>
-      )}
-    </div>
+            <div className="space-y-2">
+              {displayFavorites.map((station) => (
+                <StationCard key={station.station_id} station={station} />
+              ))}
+            </div>
+            {status === "LoadingMore" && !isSearchMode && (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-foreground mx-auto"></div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </>
   );
 }

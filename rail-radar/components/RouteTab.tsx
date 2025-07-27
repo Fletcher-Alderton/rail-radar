@@ -77,7 +77,7 @@ function StationMarkerWithScore({ station, inspectorScores }: { station: any, in
   const inspectorScore = typeof station.station_id === "string" ? inspectorScores[station.station_id] : undefined;
 
   // Compute color based on inspector score (copied logic from MinimalStationCard)
-  let color = "#18181b";
+  let color = "var(--card)";
   if (inspectorScore && typeof inspectorScore.score === "number") {
     const score = inspectorScore.score;
     function lerpColor(a: number[], b: number[], t: number) {
@@ -113,7 +113,7 @@ function StationMarkerWithScore({ station, inspectorScores }: { station: any, in
 }
 
 function getStationColor(score: number | undefined): string {
-  if (typeof score !== "number") return "#18181b";
+  if (typeof score !== "number") return "var(--card)";
   function lerpColor(a: number[], b: number[], t: number) {
     return a.map((v, i) => Math.round(v + (b[i] - v) * t));
   }
@@ -166,16 +166,197 @@ function GradientPolyline({ from, to, fromScore, toScore, ...props }: {
   );
 }
 
-export function RouteTab() {
+// Route Planning FAB Component
+export function RoutePlanningFab({ 
+  showRouteSheet, 
+  setShowRouteSheet, 
+  startStation, 
+  setStartStation, 
+  endStation, 
+  setEndStation, 
+  handleFindPath, 
+  handleClearPath,
+  showPathfinding,
+  pathfindingData,
+  stationMap
+}: {
+  showRouteSheet: boolean;
+  setShowRouteSheet: (show: boolean) => void;
+  startStation: string;
+  setStartStation: (station: string) => void;
+  endStation: string;
+  setEndStation: (station: string) => void;
+  handleFindPath: () => void;
+  handleClearPath: () => void;
+  showPathfinding?: boolean;
+  pathfindingData?: any;
+  stationMap?: Record<string, any>;
+}) {
+  return (
+    <Sheet open={showRouteSheet} onOpenChange={setShowRouteSheet}>
+      <SheetTrigger asChild>
+        <Button
+          className="h-13 w-13 rounded-full bg-background/70 backdrop-blur-xl shadow-xl border border-border/10 p-0 flex flex-col items-center justify-center gap-1 touch-target transition-colors text-muted-foreground hover:text-foreground"
+          variant="ghost"
+        >
+          <Route className="h-5 w-5 mb-0.5 select-none opacity-70" />
+        </Button>
+      </SheetTrigger>
+        <SheetContent side="bottom" className="h-[60vh] rounded-3xl border-t-2 bg-background/90 backdrop-blur-2xl shadow-2xl border-border/30 transition-all duration-300 mx-4 mb-4">
+          <SheetHeader className="pb-6">
+            <SheetTitle className="flex items-center gap-2">
+              <Route className="h-5 w-5" />
+              Plan Your Route
+            </SheetTitle>
+          </SheetHeader>
+          
+          <div className="space-y-6">
+            {/* From Station */}
+            <StationSearch
+              value={startStation}
+              onValueChange={setStartStation}
+              placeholder="Select departure station..."
+              label="From"
+            />
+
+            {/* To Station */}
+            <StationSearch
+              value={endStation}
+              onValueChange={setEndStation}
+              placeholder="Select destination station..."
+              label="To"
+            />
+
+            {/* Find Route Button */}
+            <Button
+              onClick={handleFindPath}
+              disabled={!startStation || !endStation}
+              className="w-full"
+              size="lg"
+            >
+              <Navigation className="h-4 w-4 mr-2" />
+              Find Route
+            </Button>
+
+            {/* Clear Button */}
+            {(startStation || endStation) && (
+              <Button
+                onClick={handleClearPath}
+                variant="outline"
+                className="w-full"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Clear Route
+              </Button>
+            )}
+
+            {/* Route List - Show when pathfinding is active */}
+            {showPathfinding && pathfindingData?.found && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Navigation className="h-4 w-4" />
+                  Route Details
+                </div>
+                
+                {/* Main path stations */}
+                <div className="space-y-2">
+                  {pathfindingData.path.map((station: any, index: number) => {
+                    const stationData = stationMap?.[station.station_id];
+                    if (!stationData) return null;
+                    
+                    return (
+                      <div key={`path-${station.station_id}`} className="flex items-center gap-3">
+                        <div className="flex flex-col items-center">
+                          <div className={`w-3 h-3 rounded-full ${
+                            index === 0 ? 'bg-green-500' : 
+                            index === pathfindingData.path.length - 1 ? 'bg-red-500' : 
+                            'bg-blue-500'
+                          }`} />
+                          {index < pathfindingData.path.length - 1 && (
+                            <div className="w-0.5 h-6 bg-border/30 mt-1" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <MinimalStationCard station={stationData} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Extra stations (next stations) */}
+                {pathfindingData.nextStations && pathfindingData.nextStations.length > 0 && (
+                  <div className="space-y-2 mt-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <MapPin className="h-4 w-4" />
+                      Nearby Stations
+                    </div>
+                    {pathfindingData.nextStations.map((station: any, index: number) => {
+                      const stationData = stationMap?.[station.station_id];
+                      if (!stationData) return null;
+                      
+                      return (
+                        <div key={`next-${station.station_id}`} className="flex items-center gap-3">
+                          <div className="flex flex-col items-center">
+                            <div className="w-3 h-3 rounded-full bg-orange-500" />
+                            {index < pathfindingData.nextStations.length - 1 && (
+                              <div className="w-0.5 h-6 bg-border/30 mt-1" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <MinimalStationCard station={stationData} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+  );
+}
+
+export function RouteTab({ 
+  showRouteSheet, 
+  setShowRouteSheet, 
+  startStation, 
+  setStartStation, 
+  endStation, 
+  setEndStation, 
+  showPathfinding, 
+  setShowPathfinding 
+}: {
+  showRouteSheet?: boolean;
+  setShowRouteSheet?: (show: boolean) => void;
+  startStation?: string;
+  setStartStation?: (station: string) => void;
+  endStation?: string;
+  setEndStation?: (station: string) => void;
+  showPathfinding?: boolean;
+  setShowPathfinding?: (show: boolean) => void;
+} = {}) {
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
   const [showStations, setShowStations] = useState(true);
   const [showRoutes, setShowRoutes] = useState(true);
   
-  // Pathfinding state
-  const [startStation, setStartStation] = useState<string>("");
-  const [endStation, setEndStation] = useState<string>("");
-  const [showPathfinding, setShowPathfinding] = useState(false);
-  const [showRouteSheet, setShowRouteSheet] = useState(false);
+  // Pathfinding state - use props if provided, otherwise use local state
+  const [localStartStation, setLocalStartStation] = useState<string>("");
+  const [localEndStation, setLocalEndStation] = useState<string>("");
+  const [localShowPathfinding, setLocalShowPathfinding] = useState(false);
+  const [localShowRouteSheet, setLocalShowRouteSheet] = useState(false);
+
+  // Use props if provided, otherwise use local state
+  const actualStartStation = startStation ?? localStartStation;
+  const actualSetStartStation = setStartStation ?? setLocalStartStation;
+  const actualEndStation = endStation ?? localEndStation;
+  const actualSetEndStation = setEndStation ?? setLocalEndStation;
+  const actualShowPathfinding = showPathfinding ?? localShowPathfinding;
+  const actualSetShowPathfinding = setShowPathfinding ?? setLocalShowPathfinding;
+  const actualShowRouteSheet = showRouteSheet ?? localShowRouteSheet;
+  const actualSetShowRouteSheet = setShowRouteSheet ?? setLocalShowRouteSheet;
 
   // Fetch data from Convex
   const stations = useQuery(api.stations.getAllStationsWithVotes) || [];
@@ -193,8 +374,8 @@ export function RouteTab() {
   // Fetch pathfinding results
   const pathfindingData = useQuery(
     api.routes.findPathBetweenStations,
-    showPathfinding && startStation && endStation
-      ? { startStationId: startStation, endStationId: endStation }
+    actualShowPathfinding && actualStartStation && actualEndStation
+      ? { startStationId: actualStartStation, endStationId: actualEndStation }
       : "skip"
   );
 
@@ -225,7 +406,7 @@ export function RouteTab() {
   }).filter(Boolean);
 
   // Filter polylines based on selected route or pathfinding
-  const filteredPolylines = showPathfinding && pathfindingData?.found
+  const filteredPolylines = actualShowPathfinding && pathfindingData?.found
     ? [
         // Main path edges
         ...pathfindingData.edges.map((edge: any) => {
@@ -284,7 +465,7 @@ export function RouteTab() {
   }, [stations]);
 
   // Filter stations to show based on pathfinding
-  const stationsToShow = showPathfinding && pathfindingData?.found
+  const stationsToShow = actualShowPathfinding && pathfindingData?.found
     ? [
         ...pathfindingData.path.map((s: any) => stationMap[s.station_id] || s),
         ...((pathfindingData.nextStations || []).map((s: any) => stationMap[s.station_id] || s))
@@ -293,17 +474,17 @@ export function RouteTab() {
 
   // Handle pathfinding search - simplified single step
   const handleFindPath = () => {
-    if (startStation && endStation) {
-      setShowPathfinding(true);
-      setShowRouteSheet(false);
+    if (actualStartStation && actualEndStation) {
+      actualSetShowPathfinding(true);
+      actualSetShowRouteSheet(false);
     }
   };
 
   // Handle clear pathfinding
   const handleClearPath = () => {
-    setShowPathfinding(false);
-    setStartStation("");
-    setEndStation("");
+    actualSetShowPathfinding(false);
+    actualSetStartStation("");
+    actualSetEndStation("");
   };
 
   const getSelectedStationName = (stationId: string) => {
@@ -329,7 +510,7 @@ export function RouteTab() {
         />
 
         {/* Map bounds */}
-        <MapBounds stations={showPathfinding && pathfindingData?.found ? pathfindingData.path : validStations} />
+        <MapBounds stations={actualShowPathfinding && pathfindingData?.found ? pathfindingData.path : validStations} />
 
         {/* Route Polylines */}
         {showRoutes && filteredPolylines.map((polyline: any, index: number) => {
@@ -346,7 +527,7 @@ export function RouteTab() {
               to={toStation || { lat: polyline.positions[1][0], lon: polyline.positions[1][1] }}
               fromScore={fromScore}
               toScore={toScore}
-              weight={showPathfinding && pathfindingData?.found ? 5 : 4}
+              weight={actualShowPathfinding && pathfindingData?.found ? 5 : 4}
               opacity={polyline.isNextEdge ? 0.6 : 0.8}
               dashArray={polyline.isNextEdge ? "5, 5" : undefined}
             >
@@ -371,68 +552,10 @@ export function RouteTab() {
         })}
       </MapContainer>
 
-      {/* Route Planning FAB - positioned at top with transparency */}
-      <div className="fixed top-4 right-4 z-10">
-        <Sheet open={showRouteSheet} onOpenChange={setShowRouteSheet}>
-          <SheetTrigger asChild>
-            <Fab variant="accent" className="bg-black shadow-lg border border-white/20">
-              <Route className="h-6 w-6" />
-            </Fab>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl border-t-2">
-            <SheetHeader className="pb-6">
-              <SheetTitle className="flex items-center gap-2">
-                <Route className="h-5 w-5" />
-                Plan Your Route
-              </SheetTitle>
-            </SheetHeader>
-            
-            <div className="space-y-6">
-              {/* From Station */}
-              <StationSearch
-                value={startStation}
-                onValueChange={setStartStation}
-                placeholder="Select departure station..."
-                label="From"
-              />
-
-              {/* To Station */}
-              <StationSearch
-                value={endStation}
-                onValueChange={setEndStation}
-                placeholder="Select destination station..."
-                label="To"
-              />
-
-              {/* Find Route Button */}
-              <Button
-                onClick={handleFindPath}
-                disabled={!startStation || !endStation}
-                className="w-full"
-                size="lg"
-              >
-                <Navigation className="h-4 w-4 mr-2" />
-                Find Route
-              </Button>
-
-              {/* Clear Button */}
-              {(startStation || endStation) && (
-                <Button
-                  onClick={handleClearPath}
-                  variant="outline"
-                  className="w-full"
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Clear Route
-                </Button>
-              )}
-            </div>
-          </SheetContent>
-        </Sheet>
-      </div>
+      {/* Route Planning FAB - removed from here, will be handled by navbar */}
 
       {/* Route results overlay for mobile */}
-      {showPathfinding && pathfindingData?.found && (
+      {actualShowPathfinding && pathfindingData?.found && (
         <div className="fixed top-4 left-4 right-4 z-10 md:max-w-sm">
           <Card className="p-3 bg-background/95 backdrop-blur-sm border shadow-lg">
             <div className="flex items-center justify-between">
@@ -452,14 +575,14 @@ export function RouteTab() {
               </Button>
             </div>
             <div className="mt-2 text-xs text-muted-foreground">
-              {getSelectedStationName(startStation)} → {getSelectedStationName(endStation)}
+              {getSelectedStationName(actualStartStation)} → {getSelectedStationName(actualEndStation)}
             </div>
           </Card>
         </div>
       )}
 
       {/* No route found overlay */}
-      {showPathfinding && pathfindingData && !pathfindingData.found && (
+      {actualShowPathfinding && pathfindingData && !pathfindingData.found && (
         <div className="fixed top-4 left-4 right-4 z-10 md:max-w-sm">
           <Card className="p-3 bg-background/95 backdrop-blur-sm border shadow-lg">
             <div className="flex items-center justify-between">
@@ -483,5 +606,59 @@ export function RouteTab() {
         </div>
       )}
     </div>
+  );
+}
+
+// Export a separate RouteFab component for use in navbar
+export function RouteFab({ 
+  showRouteSheet, 
+  setShowRouteSheet, 
+  startStation, 
+  setStartStation, 
+  endStation, 
+  setEndStation, 
+  showPathfinding, 
+  setShowPathfinding,
+  pathfindingData,
+  stationMap
+}: {
+  showRouteSheet: boolean;
+  setShowRouteSheet: (show: boolean) => void;
+  startStation: string;
+  setStartStation: (station: string) => void;
+  endStation: string;
+  setEndStation: (station: string) => void;
+  showPathfinding: boolean;
+  setShowPathfinding: (show: boolean) => void;
+  pathfindingData?: any;
+  stationMap?: Record<string, any>;
+}) {
+  const handleFindPath = () => {
+    if (startStation && endStation) {
+      setShowPathfinding(true);
+      setShowRouteSheet(false);
+    }
+  };
+
+  const handleClearPath = () => {
+    setShowPathfinding(false);
+    setStartStation("");
+    setEndStation("");
+  };
+
+  return (
+    <RoutePlanningFab
+      showRouteSheet={showRouteSheet}
+      setShowRouteSheet={setShowRouteSheet}
+      startStation={startStation}
+      setStartStation={setStartStation}
+      endStation={endStation}
+      setEndStation={setEndStation}
+      handleFindPath={handleFindPath}
+      handleClearPath={handleClearPath}
+      showPathfinding={showPathfinding}
+      pathfindingData={pathfindingData}
+      stationMap={stationMap}
+    />
   );
 } 

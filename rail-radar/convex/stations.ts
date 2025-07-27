@@ -620,3 +620,68 @@ export const getInspectorScores = query({
     return result;
   },
 });
+
+export const searchUserFavorites = query({
+  args: {
+    searchQuery: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Must be authenticated to search favorites");
+    }
+
+    const userId = identity.subject;
+    const now = Date.now();
+    const cutoffTime = now - VOTE_EXPIRY_MS;
+
+    // Get user's favorites
+    const userFavorites = await ctx.db
+      .query("favorites")
+      .withIndex("by_user", (q) => q.eq("user_id", userId))
+      .collect();
+
+    // Get all favorite station IDs
+    const favoriteStationIds = userFavorites.map(f => f.station_id);
+
+    // Search stations that are in user's favorites
+    const matchingStations = await ctx.db
+      .query("stations")
+      .withSearchIndex("search_station_name", (q) =>
+        q.search("name", args.searchQuery)
+      )
+      .filter((q) => q.neq(q.field("station_id"), "")) // Ensure station_id exists
+      .collect();
+
+    // Filter to only include stations that are in user's favorites
+    const favoriteStations = matchingStations.filter(station => 
+      favoriteStationIds.includes(station.station_id)
+    );
+
+    // Get vote counts for each station
+    const stationsWithVotes = await Promise.all(
+      favoriteStations.map(async (station) => {
+        // Get recent votes for this station
+        const votes = await ctx.db
+          .query("votes")
+          .withIndex("by_station", (q) => q.eq("station_id", station.station_id))
+          .filter((q) => q.gte(q.field("created_at"), cutoffTime))
+          .collect();
+
+        // Count thumbs up (true) and thumbs down (false)
+        const thumbsUp = votes.filter((vote) => vote.vote_type === true).length;
+        const thumbsDown = votes.filter((vote) => vote.vote_type === false).length;
+
+        return {
+          ...station,
+          thumbsUp,
+          thumbsDown,
+          totalVotes: thumbsUp + thumbsDown,
+          isFavorite: true,
+        };
+      })
+    );
+
+    return stationsWithVotes;
+  },
+});

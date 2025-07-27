@@ -137,6 +137,18 @@ body {
   z-index: 1;
 }
 
+/* Ensure map stays visible behind sheets */
+.leaflet-container.leaflet-fade-anim .leaflet-tile,
+.leaflet-container.leaflet-fade-anim .leaflet-popup {
+  opacity: 1;
+}
+
+/* Sheet overlay transparency */
+[data-radix-sheet-overlay] {
+  background-color: rgba(0, 0, 0, 0.3) !important;
+  backdrop-filter: blur(2px);
+}
+
 .leaflet-popup-content-wrapper {
   border-radius: 8px;
   background-color: var(--background);
