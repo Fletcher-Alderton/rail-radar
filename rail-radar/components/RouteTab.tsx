@@ -1,32 +1,35 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
-import { MinimalStationCard } from "./MinimalStationCard";
 import { 
   Sheet, 
-  SheetContent, 
+  SheetContent,
   SheetHeader, 
   SheetTitle, 
-  SheetTrigger 
+  SheetTrigger,
+  SheetPortal,
+  SheetOverlay
 } from "./ui/sheet";
 import { StationSearch } from "./ui/station-search";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Fab } from "./ui/fab";
 import { Card } from "./ui/card";
 import { 
   Navigation, 
   MapPin, 
   Clock, 
   Route, 
-  X
+  X,
+  ChevronUp,
+  ChevronDown
 } from "lucide-react";
 import { useMemo } from "react";
+
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -178,7 +181,8 @@ export function RoutePlanningFab({
   handleClearPath,
   showPathfinding,
   pathfindingData,
-  stationMap
+  stationMap,
+  inspectorScores
 }: {
   showRouteSheet: boolean;
   setShowRouteSheet: (show: boolean) => void;
@@ -191,6 +195,7 @@ export function RoutePlanningFab({
   showPathfinding?: boolean;
   pathfindingData?: any;
   stationMap?: Record<string, any>;
+  inspectorScores?: Record<string, { score: number; numVotes: number }>;
 }) {
   return (
     <Sheet open={showRouteSheet} onOpenChange={setShowRouteSheet}>
@@ -198,124 +203,203 @@ export function RoutePlanningFab({
         <Button
           className="h-13 w-13 rounded-full bg-background/70 backdrop-blur-xl shadow-xl border border-border/10 p-0 flex flex-col items-center justify-center gap-1 touch-target transition-colors text-muted-foreground hover:text-foreground"
           variant="ghost"
+          onClick={(e) => {
+            // If we have a route, just open the sheet (it will show route results)
+            // If no route, the sheet will show planning interface
+            if (showPathfinding && pathfindingData?.found) {
+              e.preventDefault();
+              setShowRouteSheet(true);
+            } else {
+            }
+          }}
         >
-          <Route className="h-5 w-5 mb-0.5 select-none opacity-70" />
+          <Route 
+            className="h-5 w-5 mb-0.5 select-none transition-colors" 
+            style={{ 
+              color: showPathfinding && pathfindingData?.found ? 'rgb(34, 197, 94)' : undefined,
+              opacity: showPathfinding && pathfindingData?.found ? 1 : 0.7
+            }} 
+          />
         </Button>
       </SheetTrigger>
-        <SheetContent side="bottom" className="h-[60vh] rounded-3xl border-t-2 bg-background/90 backdrop-blur-2xl shadow-2xl border-border/30 transition-all duration-300 mx-4 mb-4">
-          <SheetHeader className="pb-6">
-            <SheetTitle className="flex items-center gap-2">
-              <Route className="h-5 w-5" />
-              Plan Your Route
-            </SheetTitle>
-          </SheetHeader>
+      <SheetContent 
+        side="bottom" 
+        className="h-[60vh] rounded-lg border-0 bg-transparent shadow-none p-0 mx-4 mb-4"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        <div className="flex flex-col h-full bg-background/60 backdrop-blur-2xl shadow-3xl rounded-3xl border border-border/10">
+          {/* Drag handle */}
+          <div className="flex justify-center pt-3 pb-2">
+            <div className="w-12 h-1 bg-border/30 rounded-full" />
+          </div>
           
-          <div className="space-y-6">
-            {/* From Station */}
-            <StationSearch
-              value={startStation}
-              onValueChange={setStartStation}
-              placeholder="Select departure station..."
-              label="From"
-            />
+          {/* Show planning interface when no route is found */}
+          {(() => {
+            const shouldShowPlanning = !showPathfinding || !pathfindingData?.found;
+            return shouldShowPlanning;
+          })() ? (
+            <>
+              <SheetHeader className="pb-6 px-6">
+                <SheetTitle className="flex items-center gap-2">
+                  <Route className="h-5 w-5" />
+                  Plan Your Route
+                </SheetTitle>
+              </SheetHeader>
+              
+              <div className="px-6 pb-6 space-y-6 flex-1 overflow-y-auto">
+                {/* From Station */}
+                <StationSearch
+                  value={startStation}
+                  onValueChange={setStartStation}
+                  placeholder="Select departure station..."
+                  label="From"
+                />
 
-            {/* To Station */}
-            <StationSearch
-              value={endStation}
-              onValueChange={setEndStation}
-              placeholder="Select destination station..."
-              label="To"
-            />
+                {/* To Station */}
+                <StationSearch
+                  value={endStation}
+                  onValueChange={setEndStation}
+                  placeholder="Select destination station..."
+                  label="To"
+                />
 
-            {/* Find Route Button */}
-            <Button
-              onClick={handleFindPath}
-              disabled={!startStation || !endStation}
-              className="w-full"
-              size="lg"
-            >
-              <Navigation className="h-4 w-4 mr-2" />
-              Find Route
-            </Button>
+                {/* Find Route Button */}
+                <Button
+                  onClick={handleFindPath}
+                  disabled={!startStation || !endStation}
+                  className="w-full"
+                  size="lg"
+                >
+                  <Navigation className="h-4 w-4 mr-2" />
+                  Find Route
+                </Button>
 
-            {/* Clear Button */}
-            {(startStation || endStation) && (
-              <Button
-                onClick={handleClearPath}
-                variant="outline"
-                className="w-full"
-              >
-                <X className="h-4 w-4 mr-2" />
-                Clear Route
-              </Button>
-            )}
-
-            {/* Route List - Show when pathfinding is active */}
-            {showPathfinding && pathfindingData?.found && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <Navigation className="h-4 w-4" />
-                  Route Details
+                {/* Clear Button */}
+                {(startStation || endStation) && (
+                  <Button
+                    onClick={handleClearPath}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Clear Route
+                  </Button>
+                )}
+              </div>
+            </>
+          ) : (
+            /* Show route results when route is found */
+            <>
+              <div className="px-6 pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-sm font-medium text-foreground/90">Route Found</span>
+                    <span className="text-xs text-muted-foreground/70">
+                      {pathfindingData.path.length} stops
+                    </span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearPath}
+                    className="h-8 w-8 p-0 rounded-full hover:bg-background/30 transition-colors"
+                  >
+                    Clear
+                  </Button>
                 </div>
-                
-                {/* Main path stations */}
-                <div className="space-y-2">
+              </div>
+              
+              <div className="px-6 pb-6 space-y-4 flex-1 overflow-y-auto">
+                {/* Route stations with improved styling */}
+                <div className="space-y-3">
                   {pathfindingData.path.map((station: any, index: number) => {
                     const stationData = stationMap?.[station.station_id];
                     if (!stationData) return null;
                     
+                    // Get inspector score for coloring
+                    const inspectorScore = inspectorScores?.[station.station_id]?.score;
+                    const dotColor = inspectorScore !== undefined ? getStationColor(inspectorScore) : 
+                      (index === 0 ? '#10b981' : 
+                       index === pathfindingData.path.length - 1 ? '#ef4444' : 
+                       '#3b82f6');
+                    
                     return (
-                      <div key={`path-${station.station_id}`} className="flex items-center gap-3">
-                        <div className="flex flex-col items-center">
-                          <div className={`w-3 h-3 rounded-full ${
-                            index === 0 ? 'bg-green-500' : 
-                            index === pathfindingData.path.length - 1 ? 'bg-red-500' : 
-                            'bg-blue-500'
-                          }`} />
+                      <div key={`route-${station.station_id}`} className="flex items-start gap-3">
+                        <div className="flex flex-col items-center pt-1">
+                          <div 
+                            className="w-3 h-3 rounded-full border-2 border-white shadow-sm" 
+                            style={{ backgroundColor: dotColor }}
+                          />
                           {index < pathfindingData.path.length - 1 && (
-                            <div className="w-0.5 h-6 bg-border/30 mt-1" />
+                            <div className="w-0.5 h-8 bg-border/30 mt-1" />
                           )}
                         </div>
-                        <div className="flex-1">
-                          <MinimalStationCard station={stationData} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-foreground/90">
+                            {stationData.name}
+                          </div>
+                          {index === 0 && (
+                            <div className="text-xs text-muted-foreground/70 mt-0.5">
+                              Departure
+                            </div>
+                          )}
+                          {index === pathfindingData.path.length - 1 && (
+                            <div className="text-xs text-muted-foreground/70 mt-0.5">
+                              Destination
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
                   })}
                 </div>
-
-                {/* Extra stations (next stations) */}
+                
+                {/* Next stations if any */}
                 {pathfindingData.nextStations && pathfindingData.nextStations.length > 0 && (
-                  <div className="space-y-2 mt-4">
-                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                      <MapPin className="h-4 w-4" />
+                  <>
+                    <div className="border-t border-border/10 my-4" />
+                    <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground/70 mb-3">
+                      <MapPin className="h-3 w-3" />
                       Nearby Stations
                     </div>
-                    {pathfindingData.nextStations.map((station: any, index: number) => {
-                      const stationData = stationMap?.[station.station_id];
-                      if (!stationData) return null;
-                      
-                      return (
-                        <div key={`next-${station.station_id}`} className="flex items-center gap-3">
-                          <div className="flex flex-col items-center">
-                            <div className="w-3 h-3 rounded-full bg-orange-500" />
-                            {index < pathfindingData.nextStations.length - 1 && (
-                              <div className="w-0.5 h-6 bg-border/30 mt-1" />
-                            )}
+                    <div className="space-y-2">
+                      {pathfindingData.nextStations.map((station: any, index: number) => {
+                        const stationData = stationMap?.[station.station_id];
+                        if (!stationData) return null;
+                        
+                        // Get inspector score for coloring
+                        const inspectorScore = inspectorScores?.[station.station_id]?.score;
+                        const dotColor = inspectorScore !== undefined ? getStationColor(inspectorScore) : '#f59e0b';
+                        
+                        return (
+                          <div key={`next-${station.station_id}`} className="flex items-start gap-3">
+                            <div className="flex flex-col items-center pt-1">
+                              <div 
+                                className="w-2.5 h-2.5 rounded-full border border-white shadow-sm" 
+                                style={{ backgroundColor: dotColor }}
+                              />
+                              {index < pathfindingData.nextStations.length - 1 && (
+                                <div className="w-0.5 h-6 bg-border/20 mt-1" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-foreground/80">
+                                {stationData.name}
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex-1">
-                            <MinimalStationCard station={stationData} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
               </div>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
+            </>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -327,7 +411,8 @@ export function RouteTab({
   endStation, 
   setEndStation, 
   showPathfinding, 
-  setShowPathfinding 
+  setShowPathfinding,
+  onRouteDataChange
 }: {
   showRouteSheet?: boolean;
   setShowRouteSheet?: (show: boolean) => void;
@@ -337,6 +422,7 @@ export function RouteTab({
   setEndStation?: (station: string) => void;
   showPathfinding?: boolean;
   setShowPathfinding?: (show: boolean) => void;
+  onRouteDataChange?: (data: { pathfindingData: any; stationMap: any; inspectorScores: any }) => void;
 } = {}) {
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
   const [showStations, setShowStations] = useState(true);
@@ -359,17 +445,23 @@ export function RouteTab({
   const actualSetShowRouteSheet = setShowRouteSheet ?? setLocalShowRouteSheet;
 
   // Fetch data from Convex
-  const stations = useQuery(api.stations.getAllStationsWithVotes) || [];
-  const edges = useQuery(api.routes.getAllEdges) || [];
-  const routes = useQuery(api.routes.getAllRoutes) || [];
+  const rawStations = useQuery(api.stations.getAllStationsWithVotes);
+  const stations = useMemo(() => rawStations ?? [], [rawStations]);
+
+  const rawEdges = useQuery(api.routes.getAllEdges);
+  const edges = useMemo(() => rawEdges ?? [], [rawEdges]);
+
+  const rawRoutes = useQuery(api.routes.getAllRoutes);
+  const routes = useMemo(() => rawRoutes ?? [], [rawRoutes]);
 
   // Gather all station_ids
   const stationIds = useMemo(() => stations.map(s => s.station_id), [stations]);
   // Batch fetch inspector scores for all stations
-  const inspectorScores = useQuery(
+  const rawInspectorScores = useQuery(
     api.stations.getInspectorScores,
     stationIds.length > 0 ? { station_ids: stationIds } : "skip"
-  ) || {};
+  );
+  const inspectorScores = useMemo(() => rawInspectorScores ?? {}, [rawInspectorScores]);
 
   // Fetch pathfinding results
   const pathfindingData = useQuery(
@@ -464,6 +556,27 @@ export function RouteTab({
     return map;
   }, [stations]);
 
+  // Store the callback function in a ref to avoid dependency issues
+  const onRouteDataChangeRef = useRef(onRouteDataChange);
+  useEffect(() => {
+    onRouteDataChangeRef.current = onRouteDataChange;
+  }, [onRouteDataChange]);
+
+  // Notify parent of route data changes
+  useEffect(() => {
+    if (onRouteDataChangeRef.current && typeof onRouteDataChangeRef.current === 'function') {
+      try {
+        onRouteDataChangeRef.current({
+          pathfindingData: pathfindingData || null,
+          stationMap: stationMap || {},
+          inspectorScores: inspectorScores || {}
+        });
+      } catch (error) {
+        console.error('Error calling onRouteDataChange:', error);
+      }
+    }
+  }, [pathfindingData, stationMap, inspectorScores]);
+
   // Filter stations to show based on pathfinding
   const stationsToShow = actualShowPathfinding && pathfindingData?.found
     ? [
@@ -552,34 +665,7 @@ export function RouteTab({
         })}
       </MapContainer>
 
-      {/* Route Planning FAB - removed from here, will be handled by navbar */}
 
-      {/* Route results overlay for mobile */}
-      {actualShowPathfinding && pathfindingData?.found && (
-        <div className="fixed top-4 left-4 right-4 z-10 md:max-w-sm">
-          <Card className="p-3 bg-background/95 backdrop-blur-sm border shadow-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Badge variant="success" className="text-xs">Active Route</Badge>
-                <span className="text-sm font-medium">
-                  {Math.round(pathfindingData.totalWeight / 60)} min
-                </span>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleClearPath}
-                className="h-6 w-6 p-0"
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-            <div className="mt-2 text-xs text-muted-foreground">
-              {getSelectedStationName(actualStartStation)} → {getSelectedStationName(actualEndStation)}
-            </div>
-          </Card>
-        </div>
-      )}
 
       {/* No route found overlay */}
       {actualShowPathfinding && pathfindingData && !pathfindingData.found && (
@@ -605,6 +691,8 @@ export function RouteTab({
           </Card>
         </div>
       )}
+
+
     </div>
   );
 }
@@ -620,7 +708,8 @@ export function RouteFab({
   showPathfinding, 
   setShowPathfinding,
   pathfindingData,
-  stationMap
+  stationMap,
+  inspectorScores
 }: {
   showRouteSheet: boolean;
   setShowRouteSheet: (show: boolean) => void;
@@ -632,6 +721,7 @@ export function RouteFab({
   setShowPathfinding: (show: boolean) => void;
   pathfindingData?: any;
   stationMap?: Record<string, any>;
+  inspectorScores?: Record<string, { score: number; numVotes: number }>;
 }) {
   const handleFindPath = () => {
     if (startStation && endStation) {
@@ -659,6 +749,7 @@ export function RouteFab({
       showPathfinding={showPathfinding}
       pathfindingData={pathfindingData}
       stationMap={stationMap}
+      inspectorScores={inspectorScores}
     />
   );
-} 
+}

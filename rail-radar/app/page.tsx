@@ -46,6 +46,7 @@ export default function Home() {
   const [startStation, setStartStation] = useState<string>("");
   const [endStation, setEndStation] = useState<string>("");
   const [showPathfinding, setShowPathfinding] = useState(false);
+  const [routeData, setRouteData] = useState<{ pathfindingData: any; stationMap: any; inspectorScores: any } | null>(null);
 
   // Route planning handlers
   const handleFindPath = () => {
@@ -103,8 +104,9 @@ export default function Home() {
         handleFindPath={handleFindPath}
         handleClearPath={handleClearPath}
         showPathfinding={showPathfinding}
-        pathfindingData={undefined} // We'll need to get this from the RouteTab
-        stationMap={undefined} // We'll need to get this from the RouteTab
+        pathfindingData={routeData?.pathfindingData}
+        stationMap={routeData?.stationMap}
+        inspectorScores={routeData?.inspectorScores}
       />
     );
   };
@@ -120,20 +122,29 @@ export default function Home() {
 
       <main className="min-h-screen bg-background pb-20">
         {!isAuthenticated ? (
-          <div className="text-center">
-            <Card className="max-w-md mx-auto mt-16">
-              <CardHeader>
-                <CardTitle>Sign in to get started</CardTitle>
-                <CardDescription>
-                  Join the community in tracking ticket inspector presence at train stations.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => router.push("/signin")} className="w-full">
+          <div className="flex items-center justify-center min-h-screen px-6">
+            <div className="relative w-full max-w-md mx-auto">
+              {/* Glassmorphism background */}
+              <div className="absolute inset-0 rounded-3xl bg-background/60 backdrop-blur-2xl border border-border/10 shadow-2xl" />
+              
+              {/* Card content */}
+              <div className="relative z-10 p-8 text-center">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-foreground mb-3">
+                    Sign in to get started
+                  </h2>
+                  <p className="text-muted-foreground text-base">
+                    Join the community in tracking ticket inspector presence at train stations.
+                  </p>
+                </div>
+                <Button 
+                  onClick={() => router.push("/signin")} 
+                  className="w-full bg-foreground text-background rounded-xl p-4 font-semibold touch-target transition-all hover:bg-foreground/90 active:scale-95 shadow-lg"
+                >
                   Sign In
                 </Button>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
         ) : (
           <>
@@ -161,6 +172,7 @@ export default function Home() {
                 setEndStation={setEndStation}
                 showPathfinding={showPathfinding}
                 setShowPathfinding={setShowPathfinding}
+                onRouteDataChange={setRouteData}
               />
             )}
           </>
@@ -419,24 +431,38 @@ function StationsTab({ onSignOut, showSearch, onSearchToggle }: { onSignOut: () 
                     />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl border-t-2">
-                  <SheetHeader className="pb-6">
-                    <SheetTitle className="flex items-center gap-2">
-                      <img
-                        src={`/icons/person.crop.circle.${iconSuffix}.svg`}
-                        alt=""
-                        width={20}
-                        height={20}
-                        className="opacity-100"
-                        draggable="false"
-                      />
-                      Profile
-                    </SheetTitle>
-                  </SheetHeader>
-                  <div className="flex flex-col items-center gap-4 mt-6">
-                    <Button onClick={onSignOut} className="w-full touch-target">
-                      Sign out
-                    </Button>
+                <SheetContent 
+                  side="bottom" 
+                  className="h-[60vh] rounded-lg border-0 bg-transparent shadow-none p-0 mx-4 mb-4"
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                >
+                  <div className="flex flex-col h-full bg-background/60 backdrop-blur-2xl shadow-3xl rounded-3xl border border-border/10">
+                    {/* Drag handle */}
+                    <div className="flex justify-center pt-3 pb-2">
+                      <div className="w-12 h-1 bg-border/30 rounded-full" />
+                    </div>
+                    
+                    <SheetHeader className="pb-6 px-6">
+                      <SheetTitle className="flex items-center gap-2">
+                        <img
+                          src={`/icons/person.crop.circle.${iconSuffix}.svg`}
+                          alt=""
+                          width={20}
+                          height={20}
+                          className="opacity-100"
+                          draggable="false"
+                        />
+                        Profile
+                      </SheetTitle>
+                    </SheetHeader>
+                    
+                    <div className="px-6 pb-6 flex-1">
+                      <div className="flex flex-col items-center gap-4">
+                        <Button onClick={onSignOut} className="w-full touch-target">
+                          Sign out
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </SheetContent>
               </Sheet>
@@ -461,6 +487,8 @@ function StationsTab({ onSignOut, showSearch, onSearchToggle }: { onSignOut: () 
 function FavoritesTab({ showSearch, onSearchToggle }: { showSearch: boolean; onSearchToggle: () => void }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  const { resolvedTheme } = useTheme();
+  const iconSuffix = resolvedTheme === 'dark' ? 'white' : 'black';
   
   // Get favorites count
   const favoritesCountArr = useQuery(api.stations.FavoritesCount);
@@ -554,25 +582,36 @@ function FavoritesTab({ showSearch, onSearchToggle }: { showSearch: boolean; onS
         )}
 
         {displayFavorites.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="flex items-center justify-center min-h-[60vh]">
             {isSearchMode ? (
               <p className="text-muted-foreground text-lg">
                 No favorites found matching "{searchQuery}".
               </p>
             ) : (
-              <Card className="w-full border-border">
-                <CardHeader className="text-center">
-                  <CardTitle>No Favorites Yet</CardTitle>
-                  <CardDescription>
-                    You haven't added any stations to your favorites yet.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
+              <div className="relative max-w-md mx-auto">
+                {/* Glassmorphism background */}
+                <div className="absolute inset-0 rounded-2xl bg-background/60 backdrop-blur-2xl border border-border/10 shadow-2xl" />
+                
+                {/* Card content */}
+                <div className="relative z-10 p-6 text-center">
+                  <div className="mb-4">
+                    <img
+                      src={`/icons/star.${iconSuffix}.svg`}
+                      alt=""
+                      width={48}
+                      height={48}
+                      className="mx-auto opacity-50 mb-4"
+                      draggable="false"
+                    />
+                    <h3 className="text-xl font-semibold text-foreground mb-2">
+                      No Favorites Yet
+                    </h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground/80">
                     Go to the stations tab and tap the star icon next to any station to add it to your favorites.
                   </p>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
           </div>
         ) : (
