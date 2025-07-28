@@ -116,7 +116,7 @@ function StationMarkerWithScore({ station, inspectorScores }: { station: any, in
 }
 
 function getStationColor(score: number | undefined): string {
-  if (typeof score !== "number") return "var(--card)";
+  if (typeof score !== "number") return "#22C55E"; // Default blue color instead of white
   function lerpColor(a: number[], b: number[], t: number) {
     return a.map((v, i) => Math.round(v + (b[i] - v) * t));
   }

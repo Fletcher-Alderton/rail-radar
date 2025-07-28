@@ -10,7 +10,6 @@ import { api } from "../convex/_generated/api";
 import { StationCard } from "../components/StationCard";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../components/ui/sheet";
 import { useTheme } from "next-themes";
 import dynamic from "next/dynamic";
@@ -46,7 +45,11 @@ export default function Home() {
   const [startStation, setStartStation] = useState<string>("");
   const [endStation, setEndStation] = useState<string>("");
   const [showPathfinding, setShowPathfinding] = useState(false);
-  const [routeData, setRouteData] = useState<{ pathfindingData: any; stationMap: any; inspectorScores: any } | null>(null);
+  const [routeData, setRouteData] = useState<{ 
+    pathfindingData: unknown; 
+    stationMap: Record<string, unknown>; 
+    inspectorScores: Record<string, { score: number; numVotes: number }> 
+  } | null>(null);
 
   // Route planning handlers
   const handleFindPath = () => {
@@ -69,7 +72,6 @@ export default function Home() {
     }
 
     const iconSuffix = resolvedTheme === 'dark' ? 'white' : 'black';
-    console.log('Search button - resolvedTheme:', resolvedTheme, 'iconSuffix:', iconSuffix);
 
     return (
       <Button
@@ -161,6 +163,11 @@ export default function Home() {
             {current === "favorites" && <FavoritesTab 
               showSearch={showSearch}
               onSearchToggle={() => setShowSearch(!showSearch)}
+              onSignOut={() => {
+                void signOut().then(() => {
+                  router.push("/signin");
+                });
+              }}
             />}
             {current === "route" && (
               <RouteTab 
@@ -200,8 +207,6 @@ function LiquidGlassSearchBar({
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const { resolvedTheme } = useTheme();
   const iconSuffix = resolvedTheme === 'dark' ? 'white' : 'black';
-  
-  console.log('Search bar - resolvedTheme:', resolvedTheme, 'iconSuffix:', iconSuffix);
 
   useEffect(() => {
     const handleResize = () => {
@@ -283,18 +288,7 @@ function LiquidGlassSearchBar({
 
 
 
-function PlaceholderTab({ title }: { title: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh]">
-      <Card className="max-w-md mx-auto">
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>This page is coming soon.</CardDescription>
-        </CardHeader>
-      </Card>
-    </div>
-  );
-}
+
 
 
 
@@ -303,8 +297,6 @@ function StationsTab({ onSignOut, showSearch, onSearchToggle }: { onSignOut: () 
   const [isSearching, setIsSearching] = useState(false);
   const { resolvedTheme } = useTheme();
   const iconSuffix = resolvedTheme === 'dark' ? 'white' : 'black';
-  
-  console.log('StationsTab - resolvedTheme:', resolvedTheme, 'iconSuffix:', iconSuffix);
   
   // Get total station count using the row count query as it not unique to the user
   const stationCount = useQuery(api.rowCount.getRowCount, { tableName: "stations" });
@@ -484,7 +476,7 @@ function StationsTab({ onSignOut, showSearch, onSearchToggle }: { onSignOut: () 
   );
 }
 
-function FavoritesTab({ showSearch, onSearchToggle }: { showSearch: boolean; onSearchToggle: () => void }) {
+function FavoritesTab({ showSearch, onSearchToggle, onSignOut }: { showSearch: boolean; onSearchToggle: () => void; onSignOut: () => void }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const { resolvedTheme } = useTheme();
@@ -585,7 +577,7 @@ function FavoritesTab({ showSearch, onSearchToggle }: { showSearch: boolean; onS
           <div className="flex items-center justify-center min-h-[60vh]">
             {isSearchMode ? (
               <p className="text-muted-foreground text-lg">
-                No favorites found matching "{searchQuery}".
+                No favorites found matching &quot;{searchQuery}&quot;.
               </p>
             ) : (
               <div className="relative max-w-md mx-auto">
@@ -616,16 +608,65 @@ function FavoritesTab({ showSearch, onSearchToggle }: { showSearch: boolean; onS
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-xl font-semibold">
                 {isSearchMode 
                   ? `${displayFavorites.length} Favorite Station${displayFavorites.length !== 1 ? 's' : ''} found`
                   : `${favoritesCount} Favorite Station${favoritesCount !== 1 ? 's' : ''}`
                 }
               </h2>
-              <div className="text-xs text-muted-foreground">
-                Last updated: {new Date().toLocaleTimeString()}
-              </div>
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-10 w-10 p-0"
+                  >
+                    <img
+                      src={`/icons/person.crop.circle.${iconSuffix}.svg`}
+                      alt="Profile"
+                      width={22}
+                      height={22}
+                      className="opacity-100"
+                      draggable="false"
+                    />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent 
+                  side="bottom" 
+                  className="h-[60vh] rounded-lg border-0 bg-transparent shadow-none p-0 mx-4 mb-4"
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                >
+                  <div className="flex flex-col h-full bg-background/60 backdrop-blur-2xl shadow-3xl rounded-3xl border border-border/10">
+                    {/* Drag handle */}
+                    <div className="flex justify-center pt-3 pb-2">
+                      <div className="w-12 h-1 bg-border/30 rounded-full" />
+                    </div>
+                    
+                    <SheetHeader className="pb-6 px-6">
+                      <SheetTitle className="flex items-center gap-2">
+                        <img
+                          src={`/icons/person.crop.circle.${iconSuffix}.svg`}
+                          alt=""
+                          width={20}
+                          height={20}
+                          className="opacity-100"
+                          draggable="false"
+                        />
+                        Profile
+                      </SheetTitle>
+                    </SheetHeader>
+                    
+                    <div className="px-6 pb-6 flex-1">
+                      <div className="flex flex-col items-center gap-4">
+                        <Button onClick={onSignOut} className="w-full touch-target">
+                          Sign out
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
             </div>
             <div className="space-y-2">
               {displayFavorites.map((station) => (

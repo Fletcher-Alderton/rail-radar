@@ -29,8 +29,6 @@ export function StationCard({ station }: StationCardProps) {
   const [error, setError] = useState<string | null>(null);
   const { resolvedTheme } = useTheme();
   const iconSuffix = resolvedTheme === 'dark' ? 'white' : 'black';
-  
-  console.log('StationCard - resolvedTheme:', resolvedTheme, 'iconSuffix:', iconSuffix);
 
   // Radial gradient glassmorphism background
   let tint = 'rgba(24,24,27,0.7)';
@@ -51,7 +49,7 @@ export function StationCard({ station }: StationCardProps) {
     tint = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.7)`;
   }
   // Card border/shadow style only
-  let cardStyle: React.CSSProperties = {
+  const cardStyle: React.CSSProperties = {
     border: '1px solid var(--border)',
     boxShadow: '0 4px 24px 0 rgba(0,0,0,0.10)',
     borderRadius: '1rem',
@@ -59,7 +57,7 @@ export function StationCard({ station }: StationCardProps) {
     background: 'transparent',
   };
   // Blurred gradient background style
-  let blurBgStyle: React.CSSProperties = {
+  const blurBgStyle: React.CSSProperties = {
     position: 'absolute',
     inset: 0,
     zIndex: 0,

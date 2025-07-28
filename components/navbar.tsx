@@ -20,15 +20,11 @@ export default function Navbar({
   searchButton?: React.ReactNode;
   routeFab?: React.ReactNode;
 }) {
-  const { theme, resolvedTheme } = useTheme();
+  const { resolvedTheme } = useTheme();
   const iconSuffix = resolvedTheme === 'dark' ? 'white' : 'black';
-  
-  // Debug logging
-  console.log('Navbar - theme:', theme, 'resolvedTheme:', resolvedTheme, 'iconSuffix:', iconSuffix);
 
   const getIcon = (iconName: string) => {
     const iconPath = `/icons/${iconName}.${iconSuffix}.svg`;
-    console.log('Loading icon:', iconPath);
     return (
       <img
         src={iconPath}

@@ -8,15 +8,6 @@ import { api } from "../../convex/_generated/api";
 import { cn } from "../../lib/utils";
 import { Search, Check, ChevronDown } from "lucide-react";
 
-interface Station {
-  station_id: string;
-  name: string;
-  lat: number;
-  lon: number;
-  thumbsUp?: number;
-  thumbsDown?: number;
-}
-
 interface StationSearchProps {
   value: string;
   onValueChange: (value: string) => void;
@@ -93,6 +84,7 @@ export function StationSearch({
             type="button"
             role="combobox"
             aria-expanded={open}
+            aria-controls="station-search-content"
             className={cn(
               "flex h-11 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm",
               "hover:bg-accent hover:text-accent-foreground",
@@ -110,6 +102,7 @@ export function StationSearch({
 
         <Popover.Portal>
           <Popover.Content
+            id="station-search-content"
             className={cn(
               "z-50 w-[var(--radix-popover-trigger-width)] rounded-md border bg-popover p-0 text-popover-foreground shadow-md",
               "data-[state=open]:animate-in data-[state=closed]:animate-out",

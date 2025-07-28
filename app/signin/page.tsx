@@ -55,15 +55,16 @@ export default function SignIn() {
               try {
                 await signIn("password", formData);
                 router.push("/");
-              } catch (error: any) {
-                if (error.message.includes("UNAUTHORIZED") || error.message.includes("_id")) {
+              } catch (error: unknown) {
+                const errorMessage = error instanceof Error ? error.message : "An error occurred during authentication";
+                if (errorMessage.includes("UNAUTHORIZED") || errorMessage.includes("_id")) {
                   if (flow === "signIn") {
                     setError("Account not found. Please check your credentials or sign up first.");
                   } else {
                     setError("Account already exists. Please sign in instead.");
                   }
                 } else {
-                  setError(error.message || "An error occurred during authentication");
+                  setError(errorMessage);
                 }
               } finally {
                 setIsLoading(false);
