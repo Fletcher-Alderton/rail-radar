@@ -35,7 +35,7 @@ const RoutePlanningFab = dynamic(() => import("../components/RouteTab").then(mod
 export default function Home() {
   const [current, setCurrent] = useState<NavPage>("stations");
   const [showSearch, setShowSearch] = useState(false);
-  const { isAuthenticated } = useConvexAuth();
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const { signOut } = useAuthActions();
   const { resolvedTheme } = useTheme();
   const router = useRouter();
@@ -112,6 +112,18 @@ export default function Home() {
       />
     );
   };
+
+  // Show loading state while auth is initializing
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
