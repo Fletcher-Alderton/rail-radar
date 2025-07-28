@@ -12,16 +12,75 @@ export default function SignIn() {
   const router = useRouter();
   
   return (
-    <div className="flex flex-col gap-8 w-full max-w-sm mx-auto min-h-screen justify-center items-center px-4 safe-area-top safe-area-bottom relative overflow-hidden">
-      {/* Background radial gradients */}
+    <div className="flex flex-col gap-8 w-full max-w-sm mx-auto min-h-screen justify-center items-center px-4 safe-area-top safe-area-bottom relative">
+      {/* Animated gradient background */}
       <div className="absolute inset-0 pointer-events-none">
-        {/* Green gradient (top-left) */}
-        <div className="absolute top-0 right-10 w-96 h-96 bg-green-500/50 rounded-full blur-3xl" />
-        {/* Yellow gradient (top-right) */}
-        <div className="absolute top-50 right-0 w-80 h-80 bg-yellow-500/50 rounded-full blur-3xl" />
-        {/* Red gradient (bottom-center) */}
-        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-72 h-72 bg-red-500/50 rounded-full blur-3xl" />
+        {/* Animated gradient orbs */}
+        <div className="absolute top-0 left-0 w-full h-full">
+          {/* Primary animated orb - Green */}
+          <div className="absolute top-0 left-0 w-[80vw] h-[80vw] max-w-[32rem] max-h-[32rem] bg-green-500/30 rounded-full blur-3xl animate-pulse" 
+               style={{
+                 animation: 'float 8s ease-in-out infinite',
+                 transform: 'translate(-25%, -25%)'
+               }} />
+          
+          {/* Secondary animated orb - Yellow */}
+          <div className="absolute top-0 right-0 w-[60vw] h-[60vw] max-w-[24rem] max-h-[24rem] bg-yellow-500/40 rounded-full blur-3xl" 
+               style={{
+                 animation: 'float 12s ease-in-out infinite reverse',
+                 transform: 'translate(25%, -25%)'
+               }} />
+          
+          {/* Tertiary animated orb - Red */}
+          <div className="absolute bottom-0 left-0 w-[50vw] h-[50vw] max-w-[20rem] max-h-[20rem] bg-red-500/35 rounded-full blur-3xl" 
+               style={{
+                 animation: 'float 10s ease-in-out infinite',
+                 transform: 'translate(-25%, 25%)'
+               }} />
+          
+          {/* Fourth animated orb - Green */}
+          <div className="absolute bottom-0 right-0 w-[45vw] h-[45vw] max-w-[18rem] max-h-[18rem] bg-green-500/25 rounded-full blur-3xl" 
+               style={{
+                 animation: 'float 14s ease-in-out infinite reverse',
+                 transform: 'translate(25%, 25%)'
+               }} />
+          
+          {/* Fifth animated orb - Yellow */}
+          <div className="absolute top-1/2 left-0 w-[35vw] h-[35vw] max-w-[14rem] max-h-[14rem] bg-yellow-500/30 rounded-full blur-3xl" 
+               style={{
+                 animation: 'float 16s ease-in-out infinite',
+                 transform: 'translate(-25%, -50%)'
+               }} />
+          
+          {/* Sixth animated orb - Red */}
+          <div className="absolute top-1/2 right-0 w-[40vw] h-[40vw] max-w-[16rem] max-h-[16rem] bg-red-500/20 rounded-full blur-3xl" 
+               style={{
+                 animation: 'float 18s ease-in-out infinite reverse',
+                 transform: 'translate(25%, -50%)'
+               }} />
+        </div>
+        
+        {/* Animated mesh gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-background/5 to-transparent animate-pulse" 
+             style={{ animationDuration: '4s' }} />
       </div>
+      
+      <style jsx>{`
+        @keyframes float {
+          0%, 100% {
+            transform: translate(-50%, -50%) scale(1) rotate(0deg);
+          }
+          25% {
+            transform: translate(-40%, -60%) scale(1.1) rotate(90deg);
+          }
+          50% {
+            transform: translate(-60%, -40%) scale(0.9) rotate(180deg);
+          }
+          75% {
+            transform: translate(-45%, -55%) scale(1.05) rotate(270deg);
+          }
+        }
+      `}</style>
       
       {/* Glassmorphism card container */}
       <div className="relative w-full">
