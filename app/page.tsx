@@ -33,14 +33,9 @@ const RoutePlanningFab = dynamic(() => import("../components/RouteTab").then(mod
 });
 
 export default function Home() {
+  // All state declarations must come first (before any early returns)
   const [current, setCurrent] = useState<NavPage>("stations");
   const [showSearch, setShowSearch] = useState(false);
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const { signOut } = useAuthActions();
-  const { resolvedTheme } = useTheme();
-  const router = useRouter();
-
-  // Route planning state
   const [showRouteSheet, setShowRouteSheet] = useState(false);
   const [startStation, setStartStation] = useState<string>("");
   const [endStation, setEndStation] = useState<string>("");
@@ -50,6 +45,35 @@ export default function Home() {
     stationMap: Record<string, unknown>; 
     inspectorScores: Record<string, { score: number; numVotes: number }> 
   } | null>(null);
+
+  // All hooks must come before early returns
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const { signOut } = useAuthActions();
+  const { resolvedTheme } = useTheme();
+  const router = useRouter();
+
+  // Redirect unauthenticated users to sign-in page
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      // Only redirect if we're not already on the signin page
+      const currentPath = window.location.pathname;
+      if (currentPath !== "/signin") {
+        router.push("/signin");
+      }
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  // Show loading state while auth is initializing or during redirects
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Route planning handlers
   const handleFindPath = () => {
@@ -113,18 +137,6 @@ export default function Home() {
     );
   };
 
-  // Show loading state while auth is initializing
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
       <Navbar 
@@ -135,66 +147,37 @@ export default function Home() {
       />
 
       <main className="min-h-screen bg-background pb-20">
-        {!isAuthenticated ? (
-          <div className="flex items-center justify-center min-h-screen px-6">
-            <div className="relative w-full max-w-md mx-auto">
-              {/* Glassmorphism background */}
-              <div className="absolute inset-0 rounded-3xl bg-background/60 backdrop-blur-2xl border border-border/10 shadow-2xl" />
-              
-              {/* Card content */}
-              <div className="relative z-10 p-8 text-center">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-foreground mb-3">
-                    Sign in to get started
-                  </h2>
-                  <p className="text-muted-foreground text-base">
-                    Join the community in tracking ticket inspector presence at train stations.
-                  </p>
-                </div>
-                <Button 
-                  onClick={() => router.push("/signin")} 
-                  className="w-full bg-foreground text-background rounded-xl p-4 font-semibold touch-target transition-all hover:bg-foreground/90 active:scale-95 shadow-lg"
-                >
-                  Sign In
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <>
-            {current === "stations" && <StationsTab 
-              onSignOut={() => {
-                void signOut().then(() => {
-                  router.push("/signin");
-                });
-              }}
-              showSearch={showSearch}
-              onSearchToggle={() => setShowSearch(!showSearch)}
-            />}
+        {current === "stations" && <StationsTab 
+          onSignOut={() => {
+            void signOut().then(() => {
+              router.push("/signin");
+            });
+          }}
+          showSearch={showSearch}
+          onSearchToggle={() => setShowSearch(!showSearch)}
+        />}
 
-            {current === "favorites" && <FavoritesTab 
-              showSearch={showSearch}
-              onSearchToggle={() => setShowSearch(!showSearch)}
-              onSignOut={() => {
-                void signOut().then(() => {
-                  router.push("/signin");
-                });
-              }}
-            />}
-            {current === "route" && (
-              <RouteTab 
-                showRouteSheet={showRouteSheet}
-                setShowRouteSheet={setShowRouteSheet}
-                startStation={startStation}
-                setStartStation={setStartStation}
-                endStation={endStation}
-                setEndStation={setEndStation}
-                showPathfinding={showPathfinding}
-                setShowPathfinding={setShowPathfinding}
-                onRouteDataChange={setRouteData}
-              />
-            )}
-          </>
+        {current === "favorites" && <FavoritesTab 
+          showSearch={showSearch}
+          onSearchToggle={() => setShowSearch(!showSearch)}
+          onSignOut={() => {
+            void signOut().then(() => {
+              router.push("/signin");
+            });
+          }}
+        />}
+        {current === "route" && (
+          <RouteTab 
+            showRouteSheet={showRouteSheet}
+            setShowRouteSheet={setShowRouteSheet}
+            startStation={startStation}
+            setStartStation={setStartStation}
+            endStation={endStation}
+            setEndStation={setEndStation}
+            showPathfinding={showPathfinding}
+            setShowPathfinding={setShowPathfinding}
+            onRouteDataChange={setRouteData}
+          />
         )}
       </main>
     </>
